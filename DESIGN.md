@@ -33,7 +33,7 @@ Every feature should either shrink that review surface or make it easier to read
 
 ## 1. Core semantics
 
-- **Pure functional.** No mutation or side effects outside the effect system.
+- **Functional, with tracked effects.** Data is immutable and nothing is reassigned. A function is pure unless its type says otherwise: every side effect is an operation of an effect in its signature, performed in direct style and interpreted by a handler (§3). This is Koka's sense of purity, not Haskell's. Effects happen when code runs, not as values run later.
 - **Eager (strict) evaluation.** Lazy evaluation makes memory and time use hard to predict for both reviewers and LLMs.
 - **Total by default.** Functions must provably terminate. Non-termination is an effect (`Diverge`) that must be declared.
 - **No null, no exceptions.** Failure is expressed with `Result`/`Option` or as an effect (`Fail[E]`).
