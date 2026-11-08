@@ -1,0 +1,26 @@
+module Reject.OverlappingInstance
+
+-- expect: this instance of `Display` overlaps the one at
+-- line: 22
+
+-- Instances are global, so two that fit the same type leave it unclear
+-- which one a use picks (review #72).
+type Foo = record
+  n: Int
+end deriving (Display)
+
+type Box[A] = record
+  item: A
+end
+
+instance[A] Display[Box[A]]
+  function display(value: Box[A]) -> String is
+    "box"
+  end
+end
+
+instance Display[Box[Foo]]
+  function display(value: Box[Foo]) -> String is
+    "foo box"
+  end
+end

@@ -1,0 +1,15 @@
+module Visibility.OpaqueBuildRenamed
+
+-- expect: a `BankAccount` can't be built outside Vis.Bank: its field `cents` is private
+-- line: 14
+
+import Vis.Bank (Account as BankAccount)
+
+-- Messages name a type by what this file calls it (review #75).
+type Account = record
+  n: Int
+end
+
+function forge() -> BankAccount is
+  BankAccount(id: 1, cents: 5)
+end

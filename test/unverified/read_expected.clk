@@ -1,0 +1,15 @@
+module Unverified.ReadExpected
+
+-- A `TVar[Int]` holds any `Int`, whatever type is expected of what's read (review #3).
+-- expect: the value satisfies the type annotation on `x`
+-- line: 13
+import Std.Stm (Stm, TVar, read)
+
+type Cents = Int where self >= 0
+
+function as_cents(t: TVar[Int]) -> Cents
+  effects { Stm }
+is
+  let x: Cents = read(t)
+  x
+end

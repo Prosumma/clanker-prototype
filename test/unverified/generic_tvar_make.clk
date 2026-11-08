@@ -1,0 +1,22 @@
+module Unverified.GenericTVarMake
+
+-- A generic function making a `TVar[A]` that's wanted as a
+-- `TVar[Cents]`: its initial value owes `Cents` (review #43).
+-- expect: the argument for `v` satisfies `Cents`
+-- line: 20
+import Std.Stm (Stm, Atomic, TVar, new_tvar, read, write, atomically)
+
+type Cents = Int where self >= 0
+
+function make[A](v: A) -> TVar[A]
+  effects { Stm }
+is
+  new_tvar(v)
+end
+
+function negative() -> TVar[Cents]
+  effects { Stm }
+is
+  let t: TVar[Cents] = make(-5)
+  t
+end

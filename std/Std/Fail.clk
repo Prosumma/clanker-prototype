@@ -1,0 +1,37 @@
+module Std.Fail
+
+-- Failure that propagates on its own (DESIGN §3). `attempt` turns it into
+-- a Result, `or_fail` goes the other way, `map_failure` adds context.
+
+public effect Fail[E]
+  function fail(error: E) -> Never
+end
+
+public function attempt[E, A, R: Effects](action: () -> A effects { Fail[E] | R }) -> Result[E, A]
+  effects { R }
+is
+  handle action()
+    on fail(error) => Err(error)
+    on return(value) => Ok(value)
+  end
+end
+
+public function or_fail[E, A](outcome: Result[E, A]) -> A
+  effects { Fail[E] }
+is
+  match outcome
+    case Ok(value) => value
+    case Err(error) => fail(error)
+  end
+end
+
+public function map_failure[E, F, A, R: Effects](
+  action: () -> A effects { Fail[E] | R },
+  into: (E) -> F,
+) -> A
+  effects { Fail[F] | R }
+is
+  handle action()
+    on fail(error) => fail(into(error))
+  end
+end

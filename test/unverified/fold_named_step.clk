@@ -1,0 +1,17 @@
+module Unverified.FoldNamedStep
+
+-- A step function passed by name isn't checked to return `Cents` (review #3).
+-- expect: the result satisfies `bad`'s return type
+-- line: 15
+import Std.List (fold)
+
+type Cents = Int where self >= 0
+
+function dec(acc: Int, x: Int) -> Int is
+  acc - 1
+end
+
+function bad(xs: List[Int]) -> Cents is
+  let start: Cents = 0
+  fold(xs, initial: start, step: dec)
+end

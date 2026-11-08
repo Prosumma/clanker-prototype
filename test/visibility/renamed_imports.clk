@@ -1,0 +1,70 @@
+module Visibility.RenamedImports
+
+import Std.Console (Console, print_line)
+import Geo.Shapes (Shape, Square, Empty, Point, area, note)
+import Land.Plots (
+  Plot, Field, Empty as NoPlot, Point as LandPoint, area as plot_area, Notes, note as plot_note
+)
+
+-- Each clash is resolved by renaming one side where it's imported; the
+-- renamed constructor, function, and operation work in patterns,
+-- coverage, calls, and handlers (DESIGN §6).
+function total(shape: Shape, plot: Plot) -> Int is
+  area(shape) + plot_area(plot)
+end
+
+function acres(plot: Plot) -> Int is
+  match plot
+    case Field(n) => n
+    case NoPlot => 0
+  end
+end
+
+-- A renamed record type is renamed as a type and as its constructor.
+function spread(p: LandPoint) -> Int
+  ensures result == p.y - p.x
+is
+  match p
+    case LandPoint(x, y) => y - x
+  end
+end
+
+function origin() -> Point is
+  Point(x: 0)
+end
+
+function none() -> Int
+  ensures result == 0
+is
+  acres(NoPlot)
+end
+
+function noted() -> Unit
+  effects { Notes }
+is
+  plot_note("twice")
+  plot_note("twice")
+end
+
+function quietly() -> Int is
+  let _ = note("shapes")
+  handle noted()
+    on plot_note(_) => resume(())
+    on return(_) => 7
+  end
+end
+
+function main() -> Unit
+  effects { Console }
+is
+  print_line(
+    "${acres(Field(acres: 3))} ${acres(NoPlot)} ${total(
+      Square(side: 2),
+      Field(acres: 3),
+    )} ${quietly()} ${spread(LandPoint(x: 1, y: 4))} ${origin().x}",
+  )
+  match Empty
+    case Square(_) => print_line("square")
+    case Empty => print_line("no shape")
+  end
+end

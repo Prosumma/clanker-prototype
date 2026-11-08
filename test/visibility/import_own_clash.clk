@@ -1,0 +1,10 @@
+module Visibility.ImportOwnClash
+
+-- expect: `area` is declared in Visibility.ImportOwnClash and also imported from Geo.Shapes; rename the import, as in `import Geo.Shapes (area as shapes_area)`
+-- line: 6
+
+import Geo.Shapes (area)
+
+function area(x: Int) -> Int is
+  x
+end

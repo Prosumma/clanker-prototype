@@ -1,0 +1,28 @@
+module Unverified.HandleLeak
+
+-- What a handled computation's callee promises isn't known afterwards: the handler may have cut it short (review #1).
+-- expect: the postcondition of `abs_ish` holds
+-- line: 22
+import Std.Fail (Fail, fail)
+
+type Oops = variant
+  Oops
+end
+
+function check_positive(x: Int) -> Unit
+  effects { Fail[Oops] }
+  ensures x > 0
+is
+  if x <= 0 then
+    fail(Oops)
+  end
+end
+
+function abs_ish(x: Int) -> Int
+  ensures result > 0
+is
+  handle check_positive(x)
+    on fail(_) => ()
+  end
+  x
+end

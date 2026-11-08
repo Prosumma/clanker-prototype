@@ -1,0 +1,19 @@
+module Unverified.SubOperator
+
+-- `-` makes a new `T` too (review #49).
+-- expect: the value satisfies the type annotation on `y`
+-- line: 17
+
+import Std.Core (Sub)
+
+type Cents = Int where self >= 0
+
+function less[T: Sub](x: T) -> T is
+  x - x - x
+end
+
+function bad() -> Cents is
+  let c: Cents = 5
+  let y: Cents = less(c)
+  y
+end

@@ -1,0 +1,19 @@
+module Unverified.NumMethod
+
+-- `negate` makes a new `N`, so `N`'s refinement isn't preserved by a
+-- `Num`-generic function (review #49).
+-- expect: the value satisfies the type annotation on `y`
+-- line: 17
+import Std.Core (negate)
+
+type Cents = Int where self >= 0
+
+function flip[N: Num](x: N) -> N is
+  negate(x)
+end
+
+function bad() -> Cents is
+  let c: Cents = 5
+  let y: Cents = flip(c)
+  y
+end

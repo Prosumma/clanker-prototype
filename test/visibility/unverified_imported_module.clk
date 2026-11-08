@@ -1,0 +1,15 @@
+module Visibility.UnverifiedImportedModule
+
+-- expect: the postcondition of `five` holds
+-- line: 4
+-- in: Lies/Five.clk
+
+import Lies.Five (five)
+
+-- This module relies on `five`'s contract, so verifying it verifies
+-- Lies.Five too, where the contract is false (review #64).
+function also_five() -> Int
+  ensures result == 5
+is
+  five()
+end

@@ -1,0 +1,8 @@
+module Reject.BadImport
+
+-- expect: module Std.List has no `lenght`
+-- line: 6
+
+import Std.List (lenght)
+
+constant zero: Int = 0

@@ -1,0 +1,24 @@
+module Unverified.GenericTVarList
+
+-- An `A` that reaches a `TVar[Cents]` inside a `List[A]` can't be
+-- checked, so the call can't be proved (review #43).
+-- expect: every `A` passed to `fill` satisfies `Cents`
+-- line: 23
+import Std.Stm (Stm, Atomic, TVar, new_tvar, read, write, atomically)
+
+type Cents = Int where self >= 0
+
+function fill[A](t: TVar[A], xs: List[A]) -> Unit
+  effects { Stm }
+is
+  match xs
+    case Cons(h, _) => write(t, h)
+    case Nil => ()
+  end
+end
+
+function poison(balance: TVar[Cents]) -> Unit
+  effects { Stm }
+is
+  fill(balance, [-1])
+end

@@ -1,0 +1,36 @@
+module Reject.SkolemEscape
+
+-- A clause for a generic operation stores one call's argument in a TVar
+-- made outside the clause, and resumes the next call with it at another
+-- type: the skolem escapes through the TVar's contents type (review #60).
+-- expect: the clause for `swap` lets a value of its type parameter `A` escape
+-- line: 27
+import Std.Stm (Atomic, TVar, new_tvar, read, write, atomically)
+import Std.Option (Option, Some, None)
+
+effect Swap
+  function swap[A](x: A) -> A
+end
+
+function use() -> Int
+  effects { Swap }
+is
+  let s: String = swap("hello")
+  let n: Int = swap(5)
+  n + 1
+end
+
+function main() -> Int
+  effects { Atomic }
+is
+  let box = atomically(function() => new_tvar(None))
+  handle use()
+    on swap(x) =>
+      let prev = atomically(function() => read(box))
+      atomically(function() => write(box, Some(x)))
+      match prev
+        case None => resume(x)
+        case Some(p) => resume(p)
+      end
+  end
+end

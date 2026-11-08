@@ -1,0 +1,10 @@
+module Vis.Quiet
+
+-- A body that names a private type isn't published, so other modules
+-- know `same` only by its contract (review #67).
+type Alias = Int
+
+public function same(x: Int) -> Int is
+  let y: Alias = x
+  y
+end

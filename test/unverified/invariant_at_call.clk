@@ -1,0 +1,37 @@
+module Unverified.InvariantAtCall
+
+import Std.Stm (Stm, TVar, read, write)
+import Std.Core (identical)
+
+type Cents = Int where self >= 0
+
+type Pair = record
+  left: TVar[Cents]
+  right: TVar[Cents] where not identical(right, left)
+end
+
+invariant same(pair: Pair)
+  read(pair.left) == read(pair.right)
+end
+
+-- It says what it leaves alone: there are no frame conditions, so a
+-- caller knows nothing about TVars after a call except what's promised.
+function total(pair: Pair) -> Int
+  effects { Stm }
+  ensures read(pair.left) == old(read(pair.left))
+  ensures read(pair.right) == old(read(pair.right))
+is
+  read(pair.left) + read(pair.right)
+end
+
+-- expect: the invariant `same` holds when `total` is called
+-- line: 34
+-- `total` may assume the invariant, but it's broken at the call.
+function bump(pair: Pair) -> Int
+  effects { Stm }
+is
+  write(pair.left, read(pair.left) + 1)
+  let t = total(pair)
+  write(pair.right, read(pair.right) + 1)
+  t
+end

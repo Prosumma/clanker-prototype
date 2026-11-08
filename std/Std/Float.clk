@@ -1,0 +1,56 @@
+module Std.Float
+
+-- IEEE floats are only PartialEq and PartialOrd; NonNan restores Eq and Ord
+-- (DESIGN §2.2). The verifier doesn't use those laws yet: float comparisons
+-- are opaque to it, so even `x == x` on a NonNan isn't proved.
+
+import Std.Core (Add, Sub, Mul, Div, IntLiteral, FloatLiteral)
+
+public primitive type Float32
+
+public primitive type Float64
+
+public class Float[F]
+  function is_nan(value: F) -> Bool
+end
+
+--| A float that isn't NaN.
+public type NonNan[F: Float] = newtype public F where not is_nan(self)
+
+public constant nan: Float64 = 0.0 / 0.0
+
+public primitive function sqrt(value: Float64) -> Float64
+
+public primitive function non_nan[F: Float](value: F) -> Option[NonNan[F]]
+
+primitive instance Float[Float64]
+
+primitive instance Float[Float32]
+
+primitive instance PartialEq[Float64]
+
+primitive instance PartialOrd[Float64]
+
+primitive instance Add[Float64]
+
+primitive instance Sub[Float64]
+
+primitive instance Mul[Float64]
+
+primitive instance Div[Float64]
+
+primitive instance IntLiteral[Float64]
+
+primitive instance FloatLiteral[Float64]
+
+primitive instance Num[Float64]
+
+primitive instance Display[Float64]
+
+primitive instance[F: Float] PartialEq[NonNan[F]]
+
+primitive instance[F: Float] Eq[NonNan[F]]
+
+primitive instance[F: Float] PartialOrd[NonNan[F]]
+
+primitive instance[F: Float] Ord[NonNan[F]]

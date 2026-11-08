@@ -1,0 +1,15 @@
+module Unverified.Nan
+
+import Std.Float (Float64)
+
+-- `==` on floats isn't identity (`NaN != NaN`), so reflexivity isn't
+-- assumed. The verifier knows nothing of float equality at all, so this
+-- is refuted for that reason, not with a NaN witness; it pins that floats
+-- don't get identity. `equality.clk` covers records and type variables.
+-- expect: the postcondition of `reflexive` holds
+-- line: 12
+function reflexive(x: Float64) -> Bool
+  ensures result
+is
+  x == x
+end

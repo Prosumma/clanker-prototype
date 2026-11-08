@@ -1,0 +1,12 @@
+module Visibility.SurfacePrivateClass
+
+-- expect: the public function `same` mentions `Similar`, which is private
+-- line: 10
+
+class Similar[T]
+  function similar(a: T, b: T) -> Bool
+end
+
+public function same[T: Similar](a: T) -> Bool is
+  similar(a, b: a)
+end

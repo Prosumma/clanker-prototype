@@ -1,0 +1,17 @@
+module Unverified.IllFormedField
+
+-- A field's refinement must be well formed, given the fields before it
+-- (review #47).
+-- expect: the precondition of `half` holds
+-- line: 16
+
+function half(x: Int) -> Int
+  requires x > 0
+is
+  x
+end
+
+type Box = record
+  n: Int
+  m: Int where m == half(n)
+end

@@ -1,0 +1,15 @@
+module Verified.FunctionValueResult
+
+-- Applying a function value gives its declared result refinement (review #22).
+
+function apply_to(f: (Nat) -> Nat, n: Nat) -> Nat is
+  f(n)
+end
+
+function double(n: Nat) -> Nat is
+  n * 2
+end
+
+function use_it() -> Nat is
+  apply_to(double, 3)
+end

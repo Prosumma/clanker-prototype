@@ -1,0 +1,12 @@
+module Reject.NestedTVar
+
+-- A TVar holding a TVar could make a cycle (review #20, DESIGN §8).
+-- expect: a TVar can't hold a TVar, directly or inside another value
+-- line: 8
+import Std.Stm (Stm, TVar, new_tvar)
+
+function nest(t: TVar[Int]) -> TVar[TVar[Int]]
+  effects { Stm }
+is
+  new_tvar(t)
+end

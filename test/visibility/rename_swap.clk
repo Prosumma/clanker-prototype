@@ -1,0 +1,12 @@
+module Visibility.RenameSwap
+
+-- expect: `note` is the name of something else imported here, so it can't be a new name for `area`
+-- line: 8
+
+-- With an own `area`, each rename is justified by the name it renames,
+-- but `note(...)` would then call Geo.Shapes's `area` (review #75).
+import Geo.Shapes (area as note, note as geo_note)
+
+function area(x: Int) -> Int is
+  x
+end

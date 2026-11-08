@@ -1,0 +1,9 @@
+module Std.Path
+
+import Std.Process (OsString)
+
+public primitive type Path
+
+primitive instance Display[Path]
+
+public primitive function from_os_string(os: OsString) -> Path

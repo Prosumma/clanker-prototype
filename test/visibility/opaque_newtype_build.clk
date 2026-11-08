@@ -1,0 +1,10 @@
+module Visibility.OpaqueNewtypeBuild
+
+-- expect: a `Token` can't be built outside Vis.Bank: its wrapped value is private
+-- line: 9
+
+import Vis.Bank (Token)
+
+function forge() -> Token is
+  Token(5)
+end

@@ -1,0 +1,24 @@
+module Unverified.BrokenTransaction
+
+import Std.Stm (Stm, Atomic, TVar, read, write, atomically)
+import Std.Core (identical)
+
+type Cents = Int where self >= 0
+
+type Pair = record
+  left: TVar[Cents]
+  right: TVar[Cents] where not identical(right, left)
+end
+
+invariant same(pair: Pair)
+  read(pair.left) == read(pair.right)
+end
+
+-- expect: the invariant `same` holds again when this transaction commits
+-- line: 23
+-- A transaction written inline must keep the invariant too.
+function reset_left(pair: Pair) -> Unit
+  effects { Atomic }
+is
+  atomically(function() => write(pair.left, 0))
+end

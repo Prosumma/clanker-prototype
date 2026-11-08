@@ -1,0 +1,12 @@
+module Reject.EffectParamMissing
+
+-- expect: `Fs` needs its `read:` parameter; write `Fs[read: any]` to allow anything
+-- line: 8
+
+import Std.Fs (Fs)
+
+function f() -> Unit
+  effects { Fs }
+is
+  ()
+end

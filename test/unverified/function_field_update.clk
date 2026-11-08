@@ -1,0 +1,13 @@
+module Unverified.FunctionFieldUpdate
+
+-- A new function for a field of function type must fit the field's type,
+-- as an argument must (review #2, #22).
+type Job = record
+  run: (Nat) -> Nat
+end
+
+-- expect: the function passed here returns a value satisfying its declared result type
+-- line: 12
+function broken(job: Job) -> Job is
+  job with run = function(x) => x - 100
+end

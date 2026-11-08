@@ -1,0 +1,8 @@
+module Reject.LiteralRange
+
+-- expect: 300 doesn't fit in `UInt8`
+-- line: 8
+
+import Std.Int (UInt8)
+
+constant limit: UInt8 = 300

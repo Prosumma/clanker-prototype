@@ -1,0 +1,14 @@
+module Verified.AppendGrows
+
+import Std.List (length, append)
+
+-- The true version of `test/unverified/false_lemma.clk`, with the same
+-- proof: so that one fails for its claim, not for want of a proof.
+lemma append_grows[A](front: List[A], back: List[A])
+  ensures length(append(front, back)) >= length(front)
+proof
+  match front
+    case Nil => done
+    case Cons(_, tail) => append_grows(front: tail, back)
+  end
+end

@@ -1,0 +1,10 @@
+module Reject.LabelSameType
+
+-- expect: label this argument `back: ...`
+-- line: 9
+
+import Std.List (append)
+
+function f(xs: List[Int], ys: List[Int]) -> List[Int] is
+  append(front: xs, ys)
+end

@@ -1,0 +1,10 @@
+module Reject.OwnOld
+
+-- expect: `old` can't be declared
+-- line: 8
+
+-- With an own `old`, `ensures result == old(x)` would read as "unchanged"
+-- and mean something else (review #74).
+function old(x: Int) -> Int is
+  x * x
+end

@@ -1,0 +1,17 @@
+module Reject.EffectParamForm
+
+-- expect: the effect parameter `read:` of `Fs` must be a literal, `any`, or the name of one of this function's parameters
+-- line: 13
+
+import Std.Fs (Fs)
+import Std.Path (Path)
+
+function parent(p: Path) -> Path is
+  p
+end
+
+function f(root: Path) -> Unit
+  effects { Fs[read: parent(root)] }
+is
+  ()
+end

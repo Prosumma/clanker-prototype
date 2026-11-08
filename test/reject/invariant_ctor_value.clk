@@ -1,0 +1,22 @@
+module Reject.InvariantCtorValue
+
+-- An invariant type's constructor as a value would skip the check that
+-- its TVars are new (review #55).
+-- expect: `Cell` can only be called directly
+-- line: 20
+import Std.Stm (Stm, Atomic, TVar, new_tvar, read, write, atomically, retry)
+
+type Cell = record
+  t: TVar[Int]
+end
+
+invariant positive(cell: Cell)
+  read(cell.t) > 0
+end
+
+function make(t: TVar[Int]) -> Cell
+  effects { Stm }
+is
+  let build = Cell
+  build(t)
+end

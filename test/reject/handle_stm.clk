@@ -1,0 +1,18 @@
+module Reject.HandleStm
+
+-- A user handler for `Stm` could catch `retry` or drop writes, which the
+-- verifier models as the real thing (review #56).
+-- expect: `Stm` can't be handled here: only `atomically` handles it
+-- line: 12
+import Std.Stm (Stm, Atomic, TVar, new_tvar, read, write, atomically, retry)
+
+function caught(t: TVar[Int]) -> Unit
+  effects { Stm }
+is
+  handle retry()
+    on new_tvar(v) => resume(new_tvar(v))
+    on read(x) => resume(read(x))
+    on write(x, v) => resume(write(x, v))
+    on retry() => ()
+  end
+end

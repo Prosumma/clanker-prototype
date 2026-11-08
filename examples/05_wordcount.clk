@@ -1,0 +1,62 @@
+module Tools.WordCount
+
+-- Exercises: a CLI `main`, root effects, effect parameters naming value
+-- parameters, the Fail effect and `map_failure`, OsString/Path, pipelines.
+
+import Std.Console (Console, print_line, print_error)
+import Std.Process (Args, OsString, arguments, ExitCode, success, failure)
+import Std.Fs (Fs, read_bytes, FsError)
+import Std.Path (Path, from_os_string)
+import Std.Text (decode_utf8, words)
+import Std.Fail (Fail, fail, attempt, map_failure)
+import Std.List (List, length, is_empty, for_each)
+
+type CountError = variant
+  Usage
+  CannotRead(path: Path, reason: FsError)
+  NotUtf8(path: Path)
+end
+
+--| Counts the words in each file named on the command line.
+function main() -> ExitCode
+  effects { Console, Args, Fs[read: any] }
+is
+  match attempt(function() => run(arguments()))
+    case Ok(_) => success
+    case Err(Usage) =>
+      print_error("usage: wordcount FILE...")
+      failure(2)
+    case Err(CannotRead(path, reason)) =>
+      print_error("cannot read ${path}: ${reason}")
+      failure(1)
+    case Err(NotUtf8(path)) =>
+      print_error("${path} is not valid UTF-8")
+      failure(1)
+  end
+end
+
+function run(args: List[OsString]) -> Unit
+  effects { Console, Fs[read: any], Fail[CountError] }
+is
+  if is_empty(args) then
+    fail(Usage)
+  else
+    for_each(args, function(arg) => count_file(from_os_string(arg)))
+  end
+end
+
+--| Prints the word count of one file.
+--|
+--| `Fs[read: path]` is the review-relevant part of the signature: this
+--| function reads exactly the file it is given, and nothing else.
+function count_file(path: Path) -> Unit
+  effects { Console, Fs[read: path], Fail[CountError] }
+is
+  let raw = map_failure(
+    function() => read_bytes(path),
+    into: function(reason) => CannotRead(path, reason),
+  )
+  let text = map_failure(function() => decode_utf8(raw), into: function(_) => NotUtf8(path))
+  let count = text |> words |> length
+  print_line("${count}\t${path}")
+end

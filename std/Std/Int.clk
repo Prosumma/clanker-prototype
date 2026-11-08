@@ -1,0 +1,241 @@
+module Std.Int
+
+-- Fixed-width integers. Their `+`, `-`, `*` carry an overflow proof
+-- obligation, so they aren't `Num`; `Wrapping` gives arithmetic modulo 2^n
+-- (DESIGN §1, §2.2).
+
+import Std.Core (Hash, Add, Sub, Mul, Div, IntLiteral)
+
+--| Implemented by each fixed-width integer type.
+public class FixedWidth[I]
+end
+
+--| Arithmetic modulo 2^n: defined for all inputs, so it is `Num`.
+public type Wrapping[I: FixedWidth] = newtype public I deriving (Eq)
+
+public primitive function bit_xor[I: FixedWidth](
+  _ left: Wrapping[I],
+  _ right: Wrapping[I],
+) -> Wrapping[I]
+
+public primitive function widen(value: UInt8) -> UInt64
+
+primitive instance[I: FixedWidth] Add[Wrapping[I]]
+
+primitive instance[I: FixedWidth] Sub[Wrapping[I]]
+
+primitive instance[I: FixedWidth] Mul[Wrapping[I]]
+
+primitive instance[I: FixedWidth] IntLiteral[Wrapping[I]]
+
+primitive instance[I: FixedWidth] Num[Wrapping[I]]
+
+primitive instance[I: FixedWidth] Display[Wrapping[I]]
+
+public primitive type Int8
+
+primitive instance PartialEq[Int8]
+
+primitive instance Eq[Int8]
+
+primitive instance PartialOrd[Int8]
+
+primitive instance Ord[Int8]
+
+primitive instance Hash[Int8]
+
+primitive instance Add[Int8]
+
+primitive instance Sub[Int8]
+
+primitive instance Mul[Int8]
+
+primitive instance Div[Int8]
+
+primitive instance IntLiteral[Int8]
+
+primitive instance FixedWidth[Int8]
+
+primitive instance Display[Int8]
+
+public primitive type Int16
+
+primitive instance PartialEq[Int16]
+
+primitive instance Eq[Int16]
+
+primitive instance PartialOrd[Int16]
+
+primitive instance Ord[Int16]
+
+primitive instance Hash[Int16]
+
+primitive instance Add[Int16]
+
+primitive instance Sub[Int16]
+
+primitive instance Mul[Int16]
+
+primitive instance Div[Int16]
+
+primitive instance IntLiteral[Int16]
+
+primitive instance FixedWidth[Int16]
+
+primitive instance Display[Int16]
+
+public primitive type Int32
+
+primitive instance PartialEq[Int32]
+
+primitive instance Eq[Int32]
+
+primitive instance PartialOrd[Int32]
+
+primitive instance Ord[Int32]
+
+primitive instance Hash[Int32]
+
+primitive instance Add[Int32]
+
+primitive instance Sub[Int32]
+
+primitive instance Mul[Int32]
+
+primitive instance Div[Int32]
+
+primitive instance IntLiteral[Int32]
+
+primitive instance FixedWidth[Int32]
+
+primitive instance Display[Int32]
+
+public primitive type Int64
+
+primitive instance PartialEq[Int64]
+
+primitive instance Eq[Int64]
+
+primitive instance PartialOrd[Int64]
+
+primitive instance Ord[Int64]
+
+primitive instance Hash[Int64]
+
+primitive instance Add[Int64]
+
+primitive instance Sub[Int64]
+
+primitive instance Mul[Int64]
+
+primitive instance Div[Int64]
+
+primitive instance IntLiteral[Int64]
+
+primitive instance FixedWidth[Int64]
+
+primitive instance Display[Int64]
+
+public primitive type UInt8
+
+primitive instance PartialEq[UInt8]
+
+primitive instance Eq[UInt8]
+
+primitive instance PartialOrd[UInt8]
+
+primitive instance Ord[UInt8]
+
+primitive instance Hash[UInt8]
+
+primitive instance Add[UInt8]
+
+primitive instance Sub[UInt8]
+
+primitive instance Mul[UInt8]
+
+primitive instance Div[UInt8]
+
+primitive instance IntLiteral[UInt8]
+
+primitive instance FixedWidth[UInt8]
+
+primitive instance Display[UInt8]
+
+public primitive type UInt16
+
+primitive instance PartialEq[UInt16]
+
+primitive instance Eq[UInt16]
+
+primitive instance PartialOrd[UInt16]
+
+primitive instance Ord[UInt16]
+
+primitive instance Hash[UInt16]
+
+primitive instance Add[UInt16]
+
+primitive instance Sub[UInt16]
+
+primitive instance Mul[UInt16]
+
+primitive instance Div[UInt16]
+
+primitive instance IntLiteral[UInt16]
+
+primitive instance FixedWidth[UInt16]
+
+primitive instance Display[UInt16]
+
+public primitive type UInt32
+
+primitive instance PartialEq[UInt32]
+
+primitive instance Eq[UInt32]
+
+primitive instance PartialOrd[UInt32]
+
+primitive instance Ord[UInt32]
+
+primitive instance Hash[UInt32]
+
+primitive instance Add[UInt32]
+
+primitive instance Sub[UInt32]
+
+primitive instance Mul[UInt32]
+
+primitive instance Div[UInt32]
+
+primitive instance IntLiteral[UInt32]
+
+primitive instance FixedWidth[UInt32]
+
+primitive instance Display[UInt32]
+
+public primitive type UInt64
+
+primitive instance PartialEq[UInt64]
+
+primitive instance Eq[UInt64]
+
+primitive instance PartialOrd[UInt64]
+
+primitive instance Ord[UInt64]
+
+primitive instance Hash[UInt64]
+
+primitive instance Add[UInt64]
+
+primitive instance Sub[UInt64]
+
+primitive instance Mul[UInt64]
+
+primitive instance Div[UInt64]
+
+primitive instance IntLiteral[UInt64]
+
+primitive instance FixedWidth[UInt64]
+
+primitive instance Display[UInt64]

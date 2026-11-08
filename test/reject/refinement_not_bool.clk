@@ -1,0 +1,6 @@
+module Reject.RefinementNotBool
+
+-- expect: expected `Bool`, found `Int`
+-- line: 6
+
+type Positive = Int where self + 1

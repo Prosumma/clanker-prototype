@@ -1,0 +1,21 @@
+module Unverified.WrappingSource
+
+-- `FixedWidth` has no methods, but `Wrapping[I]` gets arithmetic under it
+-- and gives an `I` back, so it can make an `I` from nothing (review #54).
+-- expect: the value satisfies the type annotation on `z`
+-- line: 19
+import Std.Int (Int8, FixedWidth, Wrapping, bit_xor)
+
+type Pos8 = Int8 where self > 0
+
+function zero_of[I: FixedWidth](x: I) -> I is
+  match bit_xor(Wrapping(x), Wrapping(x))
+    case Wrapping(y) => y
+  end
+end
+
+function bad() -> Pos8 is
+  let p: Pos8 = 5
+  let z: Pos8 = zero_of(p)
+  z
+end

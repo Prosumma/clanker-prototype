@@ -1,0 +1,16 @@
+# Cabal and GHC build output
+dist-newstyle/
+dist/
+cabal.project.local
+cabal.project.local~
+.ghc.environment.*
+*.hi
+*.o
+*.dyn_hi
+*.dyn_o
+
+# Editors and the OS
+.DS_Store
+*.swp
+.vscode/
+.idea/

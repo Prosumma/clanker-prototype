@@ -1,0 +1,22 @@
+module Unverified.NestedResult
+
+-- A new value of an invariant type must satisfy it, wherever it ends up (review #5).
+-- expect: the invariant `same` holds for the new `Pair`
+-- line: 21
+import Std.Stm (Stm, TVar, new_tvar, read)
+import Std.Core (identical)
+
+type Pair = record
+  left: TVar[Int]
+  right: TVar[Int] where not identical(right, left)
+end
+
+invariant same(pair: Pair)
+  read(pair.left) == read(pair.right)
+end
+
+function make_bad() -> (Pair, Int)
+  effects { Stm }
+is
+  (Pair(left: new_tvar(1), right: new_tvar(2)), 0)
+end

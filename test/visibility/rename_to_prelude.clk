@@ -1,0 +1,8 @@
+module Visibility.RenameToPrelude
+
+-- expect: `old` is a prelude name, so it can't be an import's new name
+-- line: 8
+
+-- `ensures result == old(x)` would then call `area` (review #74).
+import Geo.Shapes (area)
+import Land.Plots (area as old)

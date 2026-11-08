@@ -1,0 +1,18 @@
+module Unverified.LaunderedFunction
+
+-- A function with a precondition, let out as a plain value, would be called without it (review #2).
+-- expect: `needs_positive` is only called, or passed directly where a function type is declared
+-- line: 16
+
+function needs_positive(y: Int where y > 0) -> Int is
+  100 / y
+end
+
+function apply_int(f: (Int) -> Int) -> Int is
+  f(0)
+end
+
+function go() -> Int is
+  let g = needs_positive
+  apply_int(g)
+end

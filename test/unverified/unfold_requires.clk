@@ -1,0 +1,24 @@
+module Unverified.UnfoldRequires
+
+-- A spec owes its calls' preconditions, so `bad(y)` here is an error for
+-- `y <= 0`; and a definition is unfolded only where its precondition holds
+-- (review #8).
+-- expect: the precondition of `bad` holds
+-- line: 21
+
+function bad(x: Int) -> Int
+  requires x > 0
+  decreases x
+is
+  if x > 0 then
+    0
+  else
+    bad(x) + 1
+  end
+end
+
+lemma absurd(y: Int)
+  ensures y > 0 or bad(y) * 0 == 0
+proof
+  done
+end

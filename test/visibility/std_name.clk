@@ -1,0 +1,10 @@
+module Std.Option
+
+-- expect: is in the standard library's namespace
+-- line: 0
+
+-- An entry file can't replace a standard-library module (review #68).
+public type Option[A] = variant
+  None
+  Some(value: A)
+end

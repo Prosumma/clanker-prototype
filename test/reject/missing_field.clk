@@ -1,0 +1,13 @@
+module Reject.MissingField
+
+-- expect: `Point` has no field `z`
+-- line: 12
+
+type Point = record
+  x: Int
+  y: Int
+end
+
+function depth(p: Point) -> Int is
+  p.z
+end

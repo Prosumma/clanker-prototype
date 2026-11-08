@@ -1,0 +1,13 @@
+module Visibility.OrphanDecode
+
+-- expect: `Decode` has no methods, so what its instances do comes from the compiler
+-- line: 12
+
+import Std.Json (Decode)
+import Vis.Bank (Account)
+
+-- `Decode` has no methods: an instance is a licence to decode, which
+-- would build an `Account` here (review #69). Its instances come only
+-- from `deriving` or std's primitives (review #73).
+instance Decode[Account]
+end

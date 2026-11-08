@@ -1,0 +1,15 @@
+module Reject.EffectInProof
+
+-- Proof code is erased, so it mustn't perform anything (review #7).
+-- expect: `print_line` performs `Console`, but specs, refinements, and constants can't perform effects
+-- line: 12
+import Std.Console (Console, print_line)
+
+function f() -> Int
+  effects { Console }
+is
+  proof
+    print_line("proving")
+  end
+  1
+end

@@ -1,0 +1,7 @@
+module Std.Clock
+
+public primitive type Timestamp
+
+primitive instance Display[Timestamp]
+
+public primitive function to_iso8601(time: Timestamp) -> String

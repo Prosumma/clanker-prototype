@@ -1,0 +1,8 @@
+module Reject.DeriveWithoutFieldInstance
+
+-- expect: can't derive `Eq` for `Handler`
+-- line: 6
+
+type Handler = record
+  run: (Int) -> Int
+end deriving (Eq)

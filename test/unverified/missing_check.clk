@@ -1,0 +1,13 @@
+module Unverified.MissingCheck
+
+-- expect: after the update, `balance` satisfies its field
+-- line: 12
+type Cents = Int where self >= 0
+
+type Account = record
+  balance: Cents
+end
+
+function withdraw(account: Account, amount: Cents) -> Account is
+  account with balance = account.balance - amount
+end

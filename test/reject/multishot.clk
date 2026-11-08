@@ -1,0 +1,25 @@
+module Reject.Multishot
+
+-- Resumption is one-shot; STM and in-place reuse depend on it (review #19).
+-- expect: the clause for `flip` can call `resume` more than once on some path
+-- line: 22
+
+effect Flip
+  function flip() -> Bool
+end
+
+function count() -> Int
+  effects { Flip }
+is
+  if flip() then
+    1
+  else
+    10
+  end
+end
+
+function both() -> Int is
+  handle count()
+    on flip() => resume(true) + resume(false)
+  end
+end

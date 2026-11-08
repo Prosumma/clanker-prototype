@@ -1,0 +1,16 @@
+module Reject.NonExhaustiveNested
+
+-- expect: this match doesn't handle `Cons(Star, _)`
+-- line: 12
+
+type Token = variant
+  Plus
+  Star
+end
+
+function first(tokens: List[Token]) -> Int is
+  match tokens
+    case Nil => 0
+    case Cons(Plus, _) => 1
+  end
+end

@@ -1,0 +1,15 @@
+module Verified.AtomicAnnotation
+
+-- An annotation on `atomically`'s result types the new TVar, and a
+-- refinement survives `atomically` (review #51).
+import Std.Stm (Stm, Atomic, TVar, new_tvar, read, write, atomically)
+
+type Cents = Int where self >= 0
+
+function open(start: Cents) -> Cents
+  effects { Atomic }
+is
+  let b: TVar[Cents] = atomically(function() => new_tvar(start))
+  let r: Cents = atomically(function() => read(b))
+  r
+end

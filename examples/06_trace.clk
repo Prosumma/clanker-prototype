@@ -1,0 +1,68 @@
+module Examples.Trace
+
+-- Exercises: a user-defined effect, two handlers for it (one pure, one
+-- printing), effect-row polymorphism, structural records, block lambdas,
+-- refinement types flowing through a generic fold, nonlinear arithmetic.
+
+import Std.Console (Console, print_line)
+import Std.List (List, fold)
+
+type Cents = Int where self >= 0
+
+--| Code that traces says so in its signature; the caller decides what
+--| tracing means.
+effect Trace
+  function trace(message: String) -> Unit
+end
+
+type Item = record
+  name: String
+  price: Cents
+  quantity: Int where quantity >= 1
+end
+
+--| example:
+--|   let cart = [Item(name: "tea", price: 450, quantity: 2)]
+--|   collect_traces(function() => checkout(cart)).traces
+--|     == ["tea: 2 x 450 = 900", "total: 900"]
+function checkout(items: List[Item]) -> Cents
+  effects { Trace }
+is
+  -- The annotation makes the accumulator a Cents. Without it, inference
+  -- would pick plain Int, because it never guesses refinements (DESIGN §2).
+  let start: Cents = 0
+  let total = fold(items, initial: start, step: function(sum, item) is
+    -- Nonlinear, but the checker's sign facts make it provable (DESIGN §4).
+    let line: Cents = item.price * item.quantity
+    trace("${item.name}: ${item.quantity} x ${item.price} = ${line}")
+    sum + line
+  end)
+  trace("total: ${total}")
+  total
+end
+
+--| Runs `action`, collecting traced messages instead of printing them.
+--| Pure: the handler removes `Trace` from the effect row.
+function collect_traces[A, E: Effects](
+  action: () -> A effects { Trace | E },
+) -> { value: A, traces: List[String] }
+  effects { E }
+is
+  handle action()
+    on trace(message) =>
+      let rest = resume(())
+      { value: rest.value, traces: Cons(message, rest.traces) }
+    on return(value) => { value, traces: [] }
+  end
+end
+
+--| Runs `action`, printing each traced message.
+function print_traces[A, E: Effects](action: () -> A effects { Trace | E }) -> A
+  effects { Console | E }
+is
+  handle action()
+    on trace(message) =>
+      print_line("[trace] ${message}")
+      resume(())
+  end
+end

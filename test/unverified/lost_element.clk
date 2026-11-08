@@ -1,0 +1,14 @@
+module Unverified.LostElement
+
+import Std.Multiset (multiset)
+
+-- expect: the postcondition of `drop_first` holds
+-- line: 8
+function drop_first(xs: List[Int]) -> List[Int]
+  ensures multiset(result) == multiset(xs)
+is
+  match xs
+    case Nil => Nil
+    case Cons(_, tail) => tail
+  end
+end

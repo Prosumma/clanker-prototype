@@ -1,0 +1,20 @@
+module Reject.InvariantNestedRecord
+
+-- A type with an invariant owns only its direct TVar fields; one inside
+-- another record could be written without it in hand (review #44).
+-- expect: the field `a` of `Twin` holds a TVar
+-- line: 18
+import Std.Stm (Stm, Atomic, TVar, new_tvar, read, write, atomically)
+
+type Cell = record
+  t: TVar[Int]
+end
+
+type Twin = record
+  a: Cell
+  b: Cell
+end
+
+invariant same(twin: Twin)
+  read(twin.a.t) == read(twin.b.t)
+end

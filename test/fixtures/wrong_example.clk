@@ -1,0 +1,8 @@
+module Fixtures.WrongExample
+
+--| An example that's wrong on purpose: the suite checks it's reported.
+--|
+--| example: double(2) == 5
+function double(n: Int) -> Int is
+  n * 2
+end

@@ -1,0 +1,11 @@
+module Reject.ClassMethodContract
+
+-- expect: the method `size` of `Size` can't have a `requires` or `ensures` yet
+-- line: 9
+
+-- It would be assumed at every call, and no instance is checked against
+-- it (review #70).
+class Size[T]
+  function size(value: T) -> Int
+    ensures result > 0
+end

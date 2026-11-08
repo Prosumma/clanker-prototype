@@ -1,0 +1,12 @@
+module Visibility.SurfacePrivateType
+
+-- expect: the public function `make` mentions `Hidden`, which is private
+-- line: 10
+
+type Hidden = record
+  public n: Int
+end
+
+public function make() -> Hidden is
+  Hidden(n: 1)
+end

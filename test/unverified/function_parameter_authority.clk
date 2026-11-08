@@ -1,0 +1,19 @@
+module Unverified.FunctionParameterAuthority
+
+-- Calling a function parameter performs its effects, which must be within what's granted (review #17).
+-- expect: the call to `reader` stays within `Fs[read: config]`
+-- line: 18
+import Std.Fs (Fs, FsError, read_bytes)
+import Std.Path (Path)
+import Std.Bytes (Bytes)
+import Std.Fail (Fail)
+
+function sneaky(
+  config: Path,
+  secret: Path,
+  reader: (Path) -> Bytes effects { Fs[read: secret], Fail[FsError] },
+) -> Bytes
+  effects { Fs[read: config], Fail[FsError] }
+is
+  reader(secret)
+end

@@ -1,0 +1,22 @@
+module Unverified.BadResume
+
+type Nat = Int where self >= 0
+
+effect Counter
+  function next() -> Nat
+end
+
+function twice() -> Int
+  effects { Counter }
+is
+  next() + next()
+end
+
+-- expect: the value passed to `resume` satisfies the operation's result type
+-- line: 20
+-- `next` promises a `Nat`, so the handler must resume with one.
+function run() -> Int is
+  handle twice()
+    on next() => resume(0 - 1)
+  end
+end

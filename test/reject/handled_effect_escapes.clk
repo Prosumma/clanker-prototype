@@ -1,0 +1,20 @@
+module Reject.HandledEffectEscapes
+
+-- expect: `trace` performs `Trace`, which no handler here takes, and `run` has no effects
+-- line: 16
+
+effect Trace
+  function trace(message: String) -> Unit
+end
+
+effect Other
+  function other() -> Unit
+end
+
+-- Handling `Other` doesn't make `Trace` go away.
+function run() -> Int is
+  handle trace("x")
+    on other() => resume(())
+  end
+  1
+end

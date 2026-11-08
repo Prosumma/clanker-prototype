@@ -1,0 +1,13 @@
+module Reject.LemmaEffects
+
+-- A lemma that always fails would prove `false` (review #7).
+-- expect: the lemma `bogus` can't have effects: proof code is pure
+-- line: 8
+import Std.Fail (Fail, fail)
+
+lemma bogus()
+  effects { Fail[String] }
+  ensures false
+proof
+  fail("no")
+end

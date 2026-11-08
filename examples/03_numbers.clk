@@ -1,0 +1,63 @@
+module Examples.Numbers
+
+-- Exercises: floats and PartialOrd, NonNan, generic Num code, Wrapping
+-- arithmetic, integer literals typed from context, indexing with a
+-- refinement precondition, pipelines.
+
+import Std.Float (Float64, NonNan, non_nan, nan, sqrt)
+import Std.Int (UInt64, Wrapping, bit_xor, widen)
+import Std.Bytes (Bytes, to_list, encode_utf8)
+import Std.List (List, length, filter_map, sort, at, sum, zip_with, fold)
+import Std.Option (Option, Some, None)
+
+type Point = record
+  x: Float64
+  y: Float64
+end
+
+--| example: distance(from: Point(x: 0.0, y: 0.0), to: Point(x: 3.0, y: 4.0)) == 5.0
+function distance(from a: Point, to b: Point) -> Float64 is
+  let dx = b.x - a.x
+  let dy = b.y - a.y
+  sqrt(dx * dx + dy * dy)
+end
+
+--| Works for any `Num`: Int, Float64, Wrapping[UInt32], ...
+--|
+--| example: dot(left: [1, 2, 3], right: [4, 5, 6]) == 32
+function dot[N: Num](left: List[N], right: List[N]) -> N
+  requires length(left) == length(right)
+is
+  sum(zip_with(left, right, combine: function(a, b) => a * b))
+end
+
+--| The upper median of the values that aren't NaN, or None if there are none.
+--|
+--| example: median([3.0, nan, 1.0, 2.0]) == Some(2.0)
+--| example: median([nan]) == None
+function median(values: List[Float64]) -> Option[Float64] is
+  -- `sort` needs `Ord`, which Float64 lacks; NonNan has it.
+  let clean = values |> filter_map(non_nan) |> sort
+  let count = length(clean)
+  if count == 0 then
+    None
+  else
+    -- `at` requires `index < length(clean)`; the solver gets it from `count > 0`.
+    Some(at(clean, index: count / 2).value)
+  end
+end
+
+--| 64-bit FNV-1a. Overflow is the point here, so the arithmetic is `Wrapping`.
+--|
+--| example: fnv1a(encode_utf8("a")) == 0xaf63dc4c8601ec8c
+function fnv1a(data: Bytes) -> UInt64 is
+  -- The literals take their type (UInt64) from context.
+  let offset_basis: Wrapping[UInt64] = Wrapping(14695981039346656037)
+  let prime: Wrapping[UInt64] = Wrapping(1099511628211)
+  let hash = fold(
+    to_list(data),
+    initial: offset_basis,
+    step: function(acc, byte) => bit_xor(acc, Wrapping(widen(byte))) * prime,
+  )
+  hash.value
+end

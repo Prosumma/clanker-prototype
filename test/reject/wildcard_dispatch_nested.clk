@@ -1,0 +1,16 @@
+module Reject.WildcardDispatchNested
+
+-- expect: this arm catches `Token` values with `_` or a variable
+-- line: 14
+
+type Token = variant
+  Plus
+  Star
+end
+
+function starts_with_plus(tokens: List[Token]) -> Bool is
+  match tokens
+    case Cons(Plus, _) => true
+    case _ => false
+  end
+end

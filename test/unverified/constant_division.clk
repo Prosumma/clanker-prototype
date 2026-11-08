@@ -1,0 +1,7 @@
+module Unverified.ConstantDivision
+
+-- A constant's initializer owes what any expression does (review #16).
+-- expect: the divisor isn't zero
+-- line: 7
+
+constant boom: Int = 1 / 0

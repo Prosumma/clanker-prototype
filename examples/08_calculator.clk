@@ -1,0 +1,177 @@
+module Examples.Calculator
+
+-- Exercises: a lexer and recursive-descent parser, char patterns with
+-- guards, the Fail effect, lexicographic termination measures across
+-- mutually recursive functions, postconditions used for termination,
+-- refinements reaching a callback, or-patterns and as-patterns.
+
+import Std.Text (chars)
+import Std.Char (Char, is_ascii_digit, digit_value)
+import Std.List (List, length, append, append_length, span, all, fold)
+import Std.Fail (Fail, fail, attempt)
+
+-- Grammar:
+--   expr   := term ("+" term)*
+--   term   := factor ("*" factor)*
+--   factor := number | "(" expr ")"
+type Token = variant
+  Number(value: Nat)
+  Plus
+  Star
+  LeftParen
+  RightParen
+end deriving (Eq, Display)
+
+type Expr = variant
+  Literal(value: Int)
+  Sum(left: Expr, right: Expr)
+  Product(left: Expr, right: Expr)
+end
+
+type ParseError = variant
+  UnexpectedChar(found: Char)
+  UnexpectedToken(found: Token)
+  UnexpectedEnd
+end deriving (Eq)
+
+type Parsed[A] = record
+  value: A
+  rest: List[Token]
+end
+
+--| example: calculate("2 + 3 * (4 + 1)") == Ok(17)
+--| example: calculate("2 +") == Err(UnexpectedEnd)
+--| example: calculate("2 $ 3") == Err(UnexpectedChar(found: '$'))
+function calculate(text: String) -> Result[ParseError, Int] is
+  attempt(function() is
+    let parsed = text |> chars |> lex |> parse_expr
+    match parsed.rest
+      case Nil => evaluate(parsed.value)
+      case Cons(token, _) => fail(UnexpectedToken(found: token))
+    end
+  end)
+end
+
+-- Lexing ------------------------------------------------------------------
+function lex(input: List[Char]) -> List[Token]
+  effects { Fail[ParseError] }
+  -- Not structural recursion: the digit case skips ahead several chars.
+  decreases length(input)
+is
+  match input
+    case Nil => Nil
+    case Cons(c, rest) =>
+      match c
+        case ' ' => lex(rest)
+        case '+' => Cons(Plus, lex(rest))
+        case '*' => Cons(Star, lex(rest))
+        case '(' => Cons(LeftParen, lex(rest))
+        case ')' => Cons(RightParen, lex(rest))
+        case digit if is_ascii_digit(digit) =>
+          let split = span(input, while: is_ascii_digit)
+          proof
+            -- `split.rest` is shorter than `input`, because the prefix
+            -- contains at least `digit`.
+            append_length(front: split.prefix, back: split.rest)
+          end
+          Cons(Number(value: digits_to_int(split.prefix)), lex(split.rest))
+        case other => fail(UnexpectedChar(found: other))
+      end
+  end
+end
+
+function digits_to_int(digits: List[Char]) -> Nat
+  requires all(digits, is_ascii_digit)
+is
+  -- `fold` tells `step` that each `d` comes from `digits` (DESIGN §2), so
+  -- with the precondition `d` is a digit and `digit_value(d)` is allowed.
+  -- `total * 10` is nonlinear; sign facts cover it (DESIGN §4).
+  let start: Nat = 0
+  fold(digits, initial: start, step: function(total, d) => total * 10 + digit_value(d))
+end
+
+-- Parsing -----------------------------------------------------------------
+--
+-- Termination: each function's measure is (tokens remaining, rank). A call
+-- either consumes tokens or moves to a lower rank, so every call goes down
+-- lexicographically. The `ensures` clauses about `result.rest` are what let
+-- callers prove that tokens were consumed.
+--| expr := term ("+" term)*
+function parse_expr(tokens: List[Token]) -> Parsed[Expr]
+  effects { Fail[ParseError] }
+  ensures length(result.rest) < length(tokens)
+  decreases (length(tokens), 2)
+is
+  let first = parse_term(tokens)
+  parse_more_terms(first.value, first.rest)
+end
+
+function parse_more_terms(left: Expr, tokens: List[Token]) -> Parsed[Expr]
+  effects { Fail[ParseError] }
+  ensures length(result.rest) <= length(tokens)
+  decreases (length(tokens), 3)
+is
+  match tokens
+    case Cons(Plus, after_plus) =>
+      let right = parse_term(after_plus)
+      parse_more_terms(Sum(left, right: right.value), right.rest)
+    -- The other Token variants are listed, not caught with `_`, so adding
+    -- a Token variant forces a decision here (DESIGN §6).
+    case Nil | Cons(Number(_) | Star | LeftParen | RightParen, _) =>
+      Parsed(value: left, rest: tokens)
+  end
+end
+
+--| term := factor ("*" factor)*
+function parse_term(tokens: List[Token]) -> Parsed[Expr]
+  effects { Fail[ParseError] }
+  ensures length(result.rest) < length(tokens)
+  decreases (length(tokens), 1)
+is
+  let first = parse_factor(tokens)
+  parse_more_factors(first.value, first.rest)
+end
+
+function parse_more_factors(left: Expr, tokens: List[Token]) -> Parsed[Expr]
+  effects { Fail[ParseError] }
+  ensures length(result.rest) <= length(tokens)
+  decreases (length(tokens), 3)
+is
+  match tokens
+    case Cons(Star, after_star) =>
+      let right = parse_factor(after_star)
+      parse_more_factors(Product(left, right: right.value), right.rest)
+    case Nil | Cons(Number(_) | Plus | LeftParen | RightParen, _) =>
+      Parsed(value: left, rest: tokens)
+  end
+end
+
+--| factor := number | "(" expr ")"
+function parse_factor(tokens: List[Token]) -> Parsed[Expr]
+  effects { Fail[ParseError] }
+  ensures length(result.rest) < length(tokens)
+  decreases (length(tokens), 0)
+is
+  match tokens
+    case Nil => fail(UnexpectedEnd)
+    case Cons(Number(value), rest) => Parsed(value: Literal(value), rest)
+    case Cons(LeftParen, after_paren) =>
+      let inner = parse_expr(after_paren)
+      match inner.rest
+        case Cons(RightParen, rest) => Parsed(value: inner.value, rest)
+        case Cons((Number(_) | Plus | Star | LeftParen) as token, _) =>
+          fail(UnexpectedToken(found: token))
+        case Nil => fail(UnexpectedEnd)
+      end
+    case Cons((Plus | Star | RightParen) as token, _) => fail(UnexpectedToken(found: token))
+  end
+end
+
+-- Evaluation --------------------------------------------------------------
+function evaluate(expr: Expr) -> Int is
+  match expr
+    case Literal(value) => value
+    case Sum(left, right) => evaluate(left) + evaluate(right)
+    case Product(left, right) => evaluate(left) * evaluate(right)
+  end
+end

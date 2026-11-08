@@ -1,0 +1,8 @@
+module Unverified.Annotation
+
+-- expect: the value satisfies the type annotation on `x`
+-- line: 6
+function negative() -> Int is
+  let x: Nat = 0 - 1
+  x
+end

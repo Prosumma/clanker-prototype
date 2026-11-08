@@ -1,0 +1,184 @@
+module Std.List
+
+import Std.Core (unreachable, identical)
+
+public type List[A] = variant
+  Nil
+  Cons(head: A, tail: List[A])
+end deriving (Eq)
+
+public function length[A](xs: List[A]) -> Nat is
+  match xs
+    case Nil => 0
+    case Cons(_, tail) => 1 + length(tail)
+  end
+end
+
+public function is_empty[A](xs: List[A]) -> Bool is
+  match xs
+    case Nil => true
+    case Cons(_, _) => false
+  end
+end
+
+public function append[A](front: List[A], back: List[A]) -> List[A] is
+  match front
+    case Nil => back
+    case Cons(head, tail) => Cons(head, append(front: tail, back))
+  end
+end
+
+public function reverse[A](xs: List[A]) -> List[A] is
+  match xs
+    case Nil => Nil
+    case Cons(head, tail) => append(front: reverse(tail), back: [head])
+  end
+end
+
+public function map[A, B, E: Effects](xs: List[A], f: (A) -> B effects { E }) -> List[B]
+  effects { E }
+is
+  match xs
+    case Nil => Nil
+    case Cons(head, tail) => Cons(f(head), map(tail, f))
+  end
+end
+
+public function filter[A, E: Effects](xs: List[A], keep: (A) -> Bool effects { E }) -> List[A]
+  effects { E }
+is
+  match xs
+    case Nil => Nil
+    case Cons(head, tail) =>
+      if keep(head) then
+        Cons(head, filter(tail, keep))
+      else
+        filter(tail, keep)
+      end
+  end
+end
+
+public function filter_map[A, B, E: Effects](
+  xs: List[A],
+  f: (A) -> Option[B] effects { E },
+) -> List[B]
+  effects { E }
+is
+  match xs
+    case Nil => Nil
+    case Cons(head, tail) =>
+      match f(head)
+        case Some(value) => Cons(value, filter_map(tail, f))
+        case None => filter_map(tail, f)
+      end
+  end
+end
+
+--| Inside `step`, each element is known to come from `xs` (DESIGN §2).
+public function fold[A, B, E: Effects](
+  xs: List[A],
+  initial: B,
+  step: (B, A where contains(xs, self)) -> B effects { E },
+) -> B
+  effects { E }
+is
+  match xs
+    case Nil => initial
+    case Cons(head, tail) => fold(tail, initial: step(initial, head), step)
+  end
+end
+
+public function for_each[A, E: Effects](xs: List[A], action: (A) -> Unit effects { E }) -> Unit
+  effects { E }
+is
+  match xs
+    case Nil => ()
+    case Cons(head, tail) =>
+      action(head)
+      for_each(tail, action)
+  end
+end
+
+public function all[A](xs: List[A], holds: (A) -> Bool) -> Bool is
+  match xs
+    case Nil => true
+    case Cons(head, tail) => holds(head) and all(tail, holds)
+  end
+end
+
+--| Whether `x` is an element of `xs`, by structural identity. A built-in
+--| abstraction function known to the solver (DESIGN §4), so it needs no
+--| `Eq` instance.
+public primitive function contains[A](xs: List[A], x: A) -> Bool
+
+--| The sum, as a sequential left fold (DESIGN §2.2).
+public function sum[N: Num](xs: List[N]) -> N is
+  fold(xs, initial: 0, step: function(total, x) => total + x)
+end
+
+public function zip_with[A, B, C](left: List[A], right: List[B], combine: (A, B) -> C) -> List[C]
+  requires length(left) == length(right)
+is
+  match (left, right)
+    case (Cons(a, rest_a), Cons(b, rest_b)) =>
+      Cons(combine(a, b), zip_with(rest_a, rest_b, combine))
+    case (Nil, Nil) | (Nil, Cons(_, _)) | (Cons(_, _), Nil) => Nil
+  end
+end
+
+public function at[A](xs: List[A], index: Nat) -> A
+  requires index < length(xs)
+is
+  match xs
+    case Nil => unreachable()
+    case Cons(head, tail) =>
+      if index == 0 then
+        head
+      else
+        at(tail, index: index - 1)
+      end
+  end
+end
+
+--| The longest prefix whose elements satisfy `keep`, and the rest.
+public function span[A](xs: List[A], while keep: (A) -> Bool) -> { prefix: List[A], rest: List[A] }
+  ensures identical(append(front: result.prefix, back: result.rest), xs)
+  ensures all(result.prefix, keep)
+  ensures match xs
+    case Cons(head, _) => keep(head) implies not identical(result.prefix, Nil)
+    case Nil => true
+  end
+is
+  match xs
+    case Cons(head, tail) if keep(head) =>
+      let after = span(tail, while: keep)
+      { prefix: Cons(head, after.prefix), rest: after.rest }
+    case Nil | Cons(_, _) => { prefix: Nil, rest: xs }
+  end
+end
+
+--| Insertion sort.
+public function sort[A: Ord](xs: List[A]) -> List[A] is
+  fold(xs, initial: Nil, step: function(sorted, x) => insert_sorted(x, sorted))
+end
+
+function insert_sorted[A: Ord](x: A, xs: List[A]) -> List[A] is
+  match xs
+    case Nil => [x]
+    case Cons(head, tail) =>
+      if x <= head then
+        Cons(x, xs)
+      else
+        Cons(head, insert_sorted(x, tail))
+      end
+  end
+end
+
+public lemma append_length[A](front: List[A], back: List[A])
+  ensures length(append(front, back)) == length(front) + length(back)
+proof
+  match front
+    case Nil => done
+    case Cons(_, tail) => append_length(front: tail, back)
+  end
+end

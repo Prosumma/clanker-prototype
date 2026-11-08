@@ -1,0 +1,25 @@
+module Reject.DispatchCycle
+
+-- expect: `size` in `instance Size[Foo]` can call itself again through a call of the class method `size` (by way of `measure`)
+-- line: 22
+
+-- `measure` calls the class method, and the instance's method calls
+-- `measure`: a cycle that only dispatch closes, whose termination
+-- nothing checks (review #70).
+class Size[T]
+  function size(value: T) -> Int
+end
+
+type Foo = record
+  n: Int
+end
+
+function measure[T: Size](x: T) -> Int is
+  size(x)
+end
+
+instance Size[Foo]
+  function size(value: Foo) -> Int is
+    measure(value)
+  end
+end

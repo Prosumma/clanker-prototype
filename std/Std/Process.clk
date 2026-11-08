@@ -1,0 +1,16 @@
+module Std.Process
+
+--| A platform string: not necessarily valid Unicode (DESIGN §2.1).
+public primitive type OsString
+
+public effect Args
+  function arguments() -> List[OsString]
+end
+
+public type ExitCode = newtype Int
+
+public constant success: ExitCode = ExitCode(0)
+
+public function failure(code: Int where code > 0) -> ExitCode is
+  ExitCode(code)
+end

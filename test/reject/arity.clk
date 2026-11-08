@@ -1,0 +1,10 @@
+module Reject.Arity
+
+-- expect: `append` takes 2 arguments, but this call gives 1
+-- line: 9
+
+import Std.List (append)
+
+function f(xs: List[Int]) -> List[Int] is
+  append(xs)
+end

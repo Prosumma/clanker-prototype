@@ -1,0 +1,14 @@
+module Reject.MissingEffect
+
+-- expect: `fail` performs `Fail[_]`, and `parse`'s effects `{ Console }` don't include it
+-- line: 13
+
+import Std.Console (Console, print_line)
+import Std.Fail (Fail, fail)
+
+function parse(text: String) -> Int
+  effects { Console }
+is
+  print_line(text)
+  fail("not a number")
+end

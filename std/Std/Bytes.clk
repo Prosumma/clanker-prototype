@@ -1,0 +1,9 @@
+module Std.Bytes
+
+import Std.Int (UInt8)
+
+public primitive type Bytes
+
+public primitive function to_list(bytes: Bytes) -> List[UInt8]
+
+public primitive function encode_utf8(text: String) -> Bytes

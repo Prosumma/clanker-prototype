@@ -1,0 +1,23 @@
+module Reject.ResumeValue
+
+-- `resume` as a value would escape the checks on its argument, and resume twice (review #14).
+-- expect: `resume` can only be called, not used as a value
+-- line: 20
+
+effect Ask
+  function ask() -> Nat
+end
+
+function use_it() -> Int
+  effects { Ask }
+is
+  ask() + 1
+end
+
+function run() -> Int is
+  handle use_it()
+    on ask() =>
+      let k = resume
+      k(-1)
+  end
+end

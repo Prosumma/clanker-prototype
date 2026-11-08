@@ -1,0 +1,12 @@
+module Visibility.BlanketInstance
+
+-- expect: this instance of `Decode` overlaps the one at std/Std/Json.clk
+-- line: 11
+
+import Std.Json (Decode)
+
+-- A blanket instance would decode every type, `Account`s included
+-- (review #72). It overlaps std's own instances, and `Decode` instances
+-- come only from `deriving` or std's primitives anyway (review #73).
+instance[A] Decode[A]
+end

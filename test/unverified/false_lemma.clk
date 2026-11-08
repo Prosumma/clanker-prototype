@@ -1,0 +1,16 @@
+module Unverified.FalseLemma
+
+import Std.List (length, append)
+
+-- The proof is a correct induction, so only the claim is wrong: appending
+-- an empty list doesn't make anything longer.
+-- expect: the postcondition of `append_grows` holds
+-- line: 10
+lemma append_grows[A](front: List[A], back: List[A])
+  ensures length(append(front, back)) > length(front)
+proof
+  match front
+    case Nil => done
+    case Cons(_, tail) => append_grows(front: tail, back)
+  end
+end

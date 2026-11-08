@@ -1,0 +1,19 @@
+module Reject.EffectParamLiteral
+
+-- expect: `fetch_other` performs `Http[host: "billing.internal"]`, but only `Http[host: "orders.internal"]` is allowed here
+-- line: 12
+
+import Std.Http (Http, Url, Https, get, Response)
+
+-- Different hosts, both literals: the checker can tell on its own.
+function fetch() -> Response
+  effects { Http[host: "orders.internal"] }
+is
+  fetch_other()
+end
+
+function fetch_other() -> Response
+  effects { Http[host: "billing.internal"] }
+is
+  get(Url(scheme: Https, host: "billing.internal", path: "/", query: []))
+end

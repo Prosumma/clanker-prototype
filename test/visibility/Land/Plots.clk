@@ -1,0 +1,22 @@
+module Land.Plots
+
+public type Plot = variant
+  Field(acres: Int)
+  Empty
+end
+
+public function area(plot: Plot) -> Int is
+  match plot
+    case Field(acres) => acres
+    case Empty => 0
+  end
+end
+
+public effect Notes
+  function note(text: String) -> Unit
+end
+
+public type Point = record
+  public x: Int
+  public y: Int
+end

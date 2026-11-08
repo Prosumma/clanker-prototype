@@ -1,0 +1,21 @@
+module Reject.InvariantUpdate
+
+-- `with` would make a second value sharing the first's TVars (review #15, #33).
+-- expect: `with` can't make a `Pair`: it has an invariant
+-- line: 20
+import Std.Stm (TVar, read)
+import Std.Core (identical)
+
+type Pair = record
+  left: TVar[Int]
+  right: TVar[Int] where not identical(right, left)
+  label: String
+end
+
+invariant same(pair: Pair)
+  read(pair.left) == read(pair.right)
+end
+
+function renamed(p: Pair) -> Pair is
+  p with label = "other"
+end

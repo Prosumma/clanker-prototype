@@ -1,0 +1,10 @@
+module Visibility.PrivateTypeImport
+
+-- expect: `Secret` is private to Vis.Bank
+-- line: 6
+
+import Vis.Bank (Secret)
+
+function f() -> Int is
+  1
+end

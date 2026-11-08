@@ -1,0 +1,8 @@
+module Reject.TypeMismatch
+
+-- expect: expected `Int`, found `String`
+-- line: 7
+
+function f() -> Int is
+  "hi"
+end

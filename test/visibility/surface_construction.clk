@@ -1,0 +1,15 @@
+module Visibility.SurfaceConstruction
+
+-- expect: the public function `issue` builds a `Ticket`, which has the private field `serial`
+-- line: 12
+
+public type Ticket = record
+  public owner: Int
+  serial: Int
+end deriving (Eq)
+
+public function issue(o: Int) -> Ticket
+  ensures result == Ticket(owner: o, serial: 0)
+is
+  Ticket(owner: o, serial: 0)
+end

@@ -1,0 +1,11 @@
+module Reject.UndeclaredEffect
+
+-- expect: `print_line` performs `Console`, and `total` has no effects
+-- line: 9
+
+import Std.Console (Console, print_line)
+
+function total(a: Int, b: Int) -> Int is
+  print_line("adding")
+  a + b
+end

@@ -1,0 +1,14 @@
+module Visibility.SurfacePrivateEffect
+
+-- expect: the public function `run` mentions `Beep`, which is private
+-- line: 10
+
+effect Beep
+  function beep() -> Unit
+end
+
+public function run() -> Unit
+  effects { Beep }
+is
+  beep()
+end

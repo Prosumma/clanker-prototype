@@ -1,0 +1,11 @@
+module Cycle.Ping
+
+import Cycle.Pong (pong)
+
+-- With Cycle.Pong, a cycle that would let `ping` and `pong` recurse into
+-- each other unchecked (review #63).
+public function ping(n: Int) -> Int
+  ensures result > 0 and result < 0
+is
+  pong(n)
+end

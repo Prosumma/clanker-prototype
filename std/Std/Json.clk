@@ -1,0 +1,22 @@
+module Std.Json
+
+import Std.Fail (Fail)
+
+public class Decode[T]
+end
+
+public type JsonError = variant
+  Malformed(offset: Nat)
+  Mismatch(path: String)
+end deriving (Eq, Display)
+
+public primitive function decode_json[A: Decode](text: String) -> A
+  effects { Fail[JsonError] }
+
+primitive instance Decode[Int]
+
+primitive instance Decode[String]
+
+primitive instance Decode[Bool]
+
+primitive instance[A: Decode] Decode[List[A]]

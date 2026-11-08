@@ -1,0 +1,14 @@
+module Visibility.SurfacePrivateFunction
+
+-- expect: the public function `half` mentions `positive`, which is private
+-- line: 11
+
+function positive(x: Int) -> Bool is
+  x > 0
+end
+
+public function half(x: Int) -> Int
+  requires positive(x)
+is
+  x
+end

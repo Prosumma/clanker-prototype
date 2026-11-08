@@ -1,0 +1,98 @@
+module Examples.Lists
+
+-- Exercises: generic variants, structural recursion, effect polymorphism,
+-- argument labels and punning, lemmas and proofs as code.
+--
+-- The real list type lives in Std.List; this re-derives the basics. List
+-- literals like `[1, 2]` always build Std.List's type, so the code here
+-- writes `Cons(head, Nil)`.
+
+type List[A] = variant
+  Nil
+  Cons(head: A, tail: List[A])
+end deriving (Eq)
+
+function length[A](xs: List[A]) -> Int
+  ensures result >= 0
+is
+  match xs
+    case Nil => 0
+    case Cons(_, tail) => 1 + length(tail)
+  end
+end
+
+--| example: append(front: Cons(1, Cons(2, Nil)), back: Cons(3, Nil)) == Cons(1, Cons(2, Cons(3, Nil)))
+function append[A](front: List[A], back: List[A]) -> List[A] is
+  match front
+    case Nil => back
+    case Cons(head, tail) => Cons(head, append(front: tail, back))
+  end
+end
+
+--| example: reverse(Cons(1, Cons(2, Nil))) == Cons(2, Cons(1, Nil))
+function reverse[A](xs: List[A]) -> List[A] is
+  match xs
+    case Nil => Nil
+    case Cons(head, tail) => append(front: reverse(tail), back: Cons(head, Nil))
+  end
+end
+
+-- `E: Effects` is an effect-row variable: `map` performs exactly the
+-- effects that `f` performs, and no others.
+--| example: map(Cons(1, Cons(2, Nil)), function(x) => x * 10) == Cons(10, Cons(20, Nil))
+function map[A, B, E: Effects](xs: List[A], f: (A) -> B effects { E }) -> List[B]
+  effects { E }
+  ensures length(result) == length(xs)
+is
+  match xs
+    case Nil => Nil
+    case Cons(head, tail) => Cons(f(head), map(tail, f))
+  end
+end
+
+--| example: filter(Cons(1, Cons(3, Nil)), keep: function(x) => x > 2) == Cons(3, Nil)
+function filter[A, E: Effects](xs: List[A], keep: (A) -> Bool effects { E }) -> List[A]
+  effects { E }
+  ensures length(result) <= length(xs)
+is
+  match xs
+    case Nil => Nil
+    case Cons(head, tail) =>
+      if keep(head) then
+        Cons(head, filter(tail, keep))
+      else
+        filter(tail, keep)
+      end
+  end
+end
+
+--| example: fold(Cons(1, Cons(2, Cons(3, Nil))), initial: 0, step: function(total, x) => total + x) == 6
+function fold[A, B, E: Effects](xs: List[A], initial: B, step: (B, A) -> B effects { E }) -> B
+  effects { E }
+is
+  match xs
+    case Nil => initial
+    case Cons(head, tail) => fold(tail, initial: step(initial, head), step)
+  end
+end
+
+lemma append_length[A](front: List[A], back: List[A])
+  ensures length(append(front, back)) == length(front) + length(back)
+proof
+  match front
+    case Nil => done
+    case Cons(_, tail) => append_length(front: tail, back)
+  end
+end
+
+lemma reverse_preserves_length[A](xs: List[A])
+  ensures length(reverse(xs)) == length(xs)
+proof
+  match xs
+    case Nil => done
+    case Cons(head, tail) =>
+      -- induction hypothesis
+      reverse_preserves_length(tail)
+      append_length(front: reverse(tail), back: Cons(head, Nil))
+  end
+end

@@ -1,0 +1,37 @@
+module Unverified.FailInTransaction
+
+-- Failing after breaking an invariant: a handler in the same transaction
+-- could catch it and commit (review #46).
+-- expect: the invariant `same` holds again before the call to `fail`, which might not return here
+-- line: 28
+import Std.Stm (Stm, Atomic, TVar, new_tvar, read, write, atomically)
+import Std.Fail (Fail, fail)
+import Std.Core (identical)
+
+type Pair = record
+  left: TVar[Int]
+  right: TVar[Int] where not identical(right, left)
+end
+
+invariant same(pair: Pair)
+  read(pair.left) == read(pair.right)
+end
+
+type Oops = variant
+  Oops
+end
+
+function break_then_fail(p: Pair) -> Unit
+  effects { Stm, Fail[Oops] }
+is
+  write(p.left, read(p.left) + 1)
+  fail(Oops)
+end
+
+function swallow(p: Pair) -> Unit
+  effects { Stm }
+is
+  handle break_then_fail(p)
+    on fail(_) => ()
+  end
+end

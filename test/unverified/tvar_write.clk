@@ -1,0 +1,17 @@
+module Unverified.TVarWrite
+
+import Std.Stm (Stm, TVar, write)
+
+-- expect: the value written satisfies `Cents`
+-- line: 16
+type Cents = Int where self >= 0
+
+type Wallet = record
+  balance: TVar[Cents]
+end
+
+function overdraw(wallet: Wallet) -> Unit
+  effects { Stm }
+is
+  write(wallet.balance, 0 - 5)
+end

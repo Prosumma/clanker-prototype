@@ -1,0 +1,12 @@
+module Unverified.WrongHost
+
+import Std.Http (Http, Url, Https, get, Response)
+
+-- expect: the precondition of `get` holds
+-- line: 11
+-- Any URL at all: `get` requires its host to be the one granted.
+function fetch(url: Url) -> Response
+  effects { Http[host: "orders.internal"] }
+is
+  get(url)
+end

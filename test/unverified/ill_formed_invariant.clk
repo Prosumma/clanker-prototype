@@ -1,0 +1,20 @@
+module Unverified.IllFormedInvariant
+
+-- An invariant must be well formed too (review #47).
+-- expect: the precondition of `half` holds
+-- line: 19
+import Std.Stm (Stm, TVar, read)
+
+function half(x: Int) -> Int
+  requires x > 0
+is
+  x
+end
+
+type Counter = record
+  count: TVar[Int]
+end
+
+invariant small(counter: Counter)
+  half(read(counter.count)) < 10
+end

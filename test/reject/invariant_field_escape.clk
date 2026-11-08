@@ -1,0 +1,20 @@
+module Reject.InvariantFieldEscape
+
+-- A TVar taken out of an invariant type could be put in another value, or written by code that doesn't know (review #6).
+-- expect: the TVar field `left` of a `Pair` can only be read or written directly
+-- line: 19
+import Std.Stm (Stm, TVar, read)
+import Std.Core (identical)
+
+type Pair = record
+  left: TVar[Int]
+  right: TVar[Int] where not identical(right, left)
+end
+
+invariant same(pair: Pair)
+  read(pair.left) == read(pair.right)
+end
+
+function left_of(p: Pair) -> TVar[Int] is
+  p.left
+end

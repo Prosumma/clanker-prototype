@@ -1,0 +1,16 @@
+module Unverified.InstanceBody
+
+-- An instance member's body is verified like any function's (review #18).
+-- expect: the divisor isn't zero
+-- line: 13
+
+type Foo = record
+  v: Int
+end
+
+instance Display[Foo]
+  function display(value: Foo) -> String is
+    let z = 1 / 0
+    "x"
+  end
+end

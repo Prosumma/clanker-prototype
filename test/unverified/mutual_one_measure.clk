@@ -1,0 +1,22 @@
+module Unverified.MutualOneMeasure
+
+-- In a mutually recursive group, every function needs a measure (review #9).
+-- expect: terminates (in a mutually recursive group, every function needs `decreases`)
+-- line: 14, 21
+
+function f(n: Nat) -> Nat
+  ensures result > 100
+  decreases n
+is
+  if n == 0 then
+    101
+  else
+    g(n - 1)
+  end
+end
+
+function g(n: Nat) -> Nat
+  ensures result > 100
+is
+  f(n)
+end

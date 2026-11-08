@@ -1,0 +1,8 @@
+module Visibility.NeedlessRename
+
+-- expect: `area` is renamed to `shape_area`, but nothing else here is called `area`
+-- line: 8
+
+-- A rename is allowed only to resolve a clash, so a name differs from
+-- its declaration only where it must (DESIGN §6).
+import Geo.Shapes (area as shape_area)

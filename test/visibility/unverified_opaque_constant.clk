@@ -1,0 +1,14 @@
+module Visibility.UnverifiedOpaqueConstant
+
+-- expect: the postcondition of `first_id` holds
+-- line: 11
+
+import Vis.Bank (first_account)
+
+-- `first_account`'s value builds an `Account`, whose `cents` is private,
+-- so this module knows only its type, not that its id is 0 (DESIGN §6).
+function first_id() -> Int
+  ensures result == 0
+is
+  first_account.id
+end

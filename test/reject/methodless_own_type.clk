@@ -1,0 +1,15 @@
+module Reject.MethodlessOwnType
+
+-- expect: `IntLiteral` has no methods, so what its instances do comes from the compiler
+-- line: 14
+
+import Std.Core (IntLiteral)
+
+-- Literals are built by the runtime as integers, so `5` typed as a `Foo`
+-- would verify and then fail on `.n` at run time (review #73).
+type Foo = record
+  public n: Int where n > 0
+end
+
+instance IntLiteral[Foo]
+end

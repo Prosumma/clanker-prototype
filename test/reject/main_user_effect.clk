@@ -1,0 +1,14 @@
+module Reject.MainUserEffect
+
+-- expect: `main` can't perform `Trace`: nothing handles it outside `main`
+-- line: 10
+
+effect Trace
+  function trace(message: String) -> Unit
+end
+
+function main() -> Unit
+  effects { Trace }
+is
+  trace("starting")
+end

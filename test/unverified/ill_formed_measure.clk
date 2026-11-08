@@ -1,0 +1,21 @@
+module Unverified.IllFormedMeasure
+
+-- A `decreases` measure must be well formed (review #47).
+-- expect: the precondition of `half` holds
+-- line: 14
+
+function half(x: Int) -> Int
+  requires x > 0
+is
+  x
+end
+
+function count_down(n: Nat) -> Nat
+  decreases half(n)
+is
+  if n < 3 then
+    0
+  else
+    count_down(n - 2)
+  end
+end

@@ -1,0 +1,67 @@
+module Examples.Sorting
+
+-- Exercises: a fully verified insertion sort; generic Ord code; a refined
+-- type alias as a return type; multisets in specs; a lemma whose proof is
+-- a single `unfold`.
+
+import Std.List (List)
+import Std.Multiset (multiset)
+
+function is_sorted[A: Ord](xs: List[A]) -> Bool is
+  match xs
+    case Nil => true
+    case Cons(_, Nil) => true
+    case Cons(first, Cons(second, rest)) => first <= second and is_sorted(Cons(second, rest))
+  end
+end
+
+type Sorted[A: Ord] = List[A] where is_sorted(self)
+
+function starts_at_least[A: Ord](xs: List[A], bound: A) -> Bool is
+  match xs
+    case Nil => true
+    case Cons(head, _) => bound <= head
+  end
+end
+
+--| Inserting a value that is at least `bound` into a sorted list whose
+--| first element is at least `bound` gives a list whose first element is
+--| at least `bound`.
+lemma insert_respects_bound[A: Ord](x: A, xs: Sorted[A], bound: A)
+  requires bound <= x
+  requires starts_at_least(xs, bound)
+  ensures starts_at_least(insert(x, xs), bound)
+proof
+  unfold insert
+end
+
+function insert[A: Ord](x: A, xs: Sorted[A]) -> Sorted[A]
+  ensures multiset(result) == multiset(Cons(x, xs))
+is
+  match xs
+    case Nil => [x]
+    case Cons(head, tail) =>
+      if x <= head then
+        Cons(x, xs)
+      else
+        let inserted = insert(x, tail)
+        proof
+          -- `inserted` starts with x or with tail's head, and both are >= head.
+          insert_respects_bound(x, tail, bound: head)
+          -- The multiset of `xs` itself takes a second step of `multiset`.
+          unfold multiset
+        end
+        Cons(head, inserted)
+      end
+  end
+end
+
+--| example: insertion_sort([3, 1, 2, 1]) == [1, 1, 2, 3]
+function insertion_sort[A: Ord](xs: List[A]) -> Sorted[A]
+  ensures multiset(result) == multiset(xs)
+is
+  match xs
+    case Nil => []
+    case Cons(head, tail) => insert(head, insertion_sort(tail))
+  end
+end

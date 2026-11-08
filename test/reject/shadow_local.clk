@@ -1,0 +1,9 @@
+module Reject.ShadowLocal
+
+-- expect: `x` is already bound here
+-- line: 7
+
+function f(x: Int) -> Int is
+  let x = 2
+  x
+end

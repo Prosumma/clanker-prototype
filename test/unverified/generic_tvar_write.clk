@@ -1,0 +1,21 @@
+module Unverified.GenericTVarWrite
+
+-- A generic function writing a `TVar[A]` with `A := Cents`: its `A`
+-- argument owes `Cents` (review #43).
+-- expect: the argument for `v` satisfies `Cents` (`A` is the contents of a `TVar[Cents]` here)
+-- line: 20
+import Std.Stm (Stm, Atomic, TVar, new_tvar, read, write, atomically)
+
+type Cents = Int where self >= 0
+
+function put[A](t: TVar[A], v: A) -> Unit
+  effects { Stm }
+is
+  write(t, v)
+end
+
+function withdraw(balance: TVar[Cents]) -> Unit
+  effects { Stm }
+is
+  put(balance, -5)
+end

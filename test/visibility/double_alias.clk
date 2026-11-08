@@ -1,0 +1,7 @@
+module Visibility.DoubleAlias
+
+-- expect: `area` is already imported here as `geo_area`; import it once
+-- line: 7
+
+import Land.Plots (area)
+import Geo.Shapes (area as geo_area, area as shape_area)

@@ -1,0 +1,11 @@
+module Unverified.EqualityGeneric
+
+-- For a type variable, `==` is whatever the instance is (review #11).
+-- expect: the postcondition of `refl_gen` holds
+-- line: 8
+
+function refl_gen[A: PartialEq](x: A) -> Bool
+  ensures result
+is
+  x == x
+end

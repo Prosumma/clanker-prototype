@@ -1,0 +1,22 @@
+module Unverified.TagClassConstraint
+
+-- Under `Sub`, a generic function can make an `A` it was never passed, so
+-- the tag on a `TVar[Cents]` can't be checked at the call (review #53).
+-- expect: every `A` passed to `put_neg` satisfies `Cents`
+-- line: 21
+import Std.Stm (Stm, Atomic, TVar, new_tvar, read, write, atomically, retry)
+import Std.Core (Sub)
+
+type Cents = Int where self >= 0
+
+function put_neg[A: Sub](t: TVar[A], v: A) -> Unit
+  effects { Stm }
+is
+  write(t, v - v - v)
+end
+
+function withdraw(balance: TVar[Cents]) -> Unit
+  effects { Stm }
+is
+  put_neg(balance, 5)
+end

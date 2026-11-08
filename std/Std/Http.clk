@@ -1,0 +1,24 @@
+module Std.Http
+
+public type Scheme = variant
+  Https
+  PlainHttp
+end deriving (Eq)
+
+public type Url = record
+  public scheme: Scheme
+  public host: String
+  public path: String
+  public query: List[(String, String)]
+end
+
+public type Response = record
+  public status: Int
+  public body: String
+end
+
+--| `Http[host: h]` permits requests to `h` (DESIGN §3).
+public effect Http[host: String]
+  function get(url: Url) -> Response
+    requires url.host == host
+end

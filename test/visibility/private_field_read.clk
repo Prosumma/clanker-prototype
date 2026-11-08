@@ -1,0 +1,10 @@
+module Visibility.PrivateFieldRead
+
+-- expect: `cents` is a private field of `Account`
+-- line: 9
+
+import Vis.Bank (Account)
+
+function peek(account: Account) -> Int is
+  account.cents
+end

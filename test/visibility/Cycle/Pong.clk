@@ -1,0 +1,9 @@
+module Cycle.Pong
+
+import Cycle.Ping (ping)
+
+public function pong(n: Int) -> Int
+  ensures result > 0 and result < 0
+is
+  ping(n)
+end

@@ -1,0 +1,16 @@
+module Unverified.RecursionByValue
+
+-- Recursion through a function value escapes the termination check (review #9).
+-- expect: `loop` isn't used as a value inside its own recursive group
+-- line: 15
+
+function apply_to(f: (Nat) -> Int, n: Nat) -> Int is
+  f(n)
+end
+
+function loop(n: Nat) -> Int
+  ensures result == 1
+  decreases n
+is
+  apply_to(loop, n)
+end

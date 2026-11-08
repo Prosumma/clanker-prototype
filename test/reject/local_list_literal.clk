@@ -1,0 +1,12 @@
+module Reject.LocalListLiteral
+
+-- expect: expected `Reject.LocalListLiteral.List[Int]`, found `Std.List.List[_]`
+-- line: 11
+type List[A] = variant
+  Nil
+  Cons(head: A, tail: List[A])
+end
+
+function three() -> List[Int] is
+  [1, 2, 3]
+end

@@ -1,0 +1,7 @@
+module Lies.Five
+
+public function five() -> Int
+  ensures result == 5
+is
+  4
+end

@@ -1,0 +1,11 @@
+module Unverified.LemmaNoDecreases
+
+-- Recursion without a measure must be structural; this would prove `false` (review #10).
+-- expect: the recursive call to `absurd` terminates
+-- line: 10
+
+lemma absurd(n: Int)
+  ensures false
+proof
+  absurd(n)
+end

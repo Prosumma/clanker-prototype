@@ -1,0 +1,18 @@
+module Reject.EffectParamWiden
+
+-- expect: found `(Path) -> Bytes effects { Fs[read: any], Fail[FsError] | _ }`
+-- line: 17
+
+import Std.Fs (Fs, read_bytes, FsError)
+import Std.Fail (Fail)
+import Std.Path (Path)
+import Std.Bytes (Bytes)
+import Std.List (List, map)
+
+-- As a value, `read_bytes` reads whatever path it's later given, so it
+-- needs `Fs[read: any]`; `Fs[read: root]` permits only `root`.
+function read_all(paths: List[Path], root: Path) -> List[Bytes]
+  effects { Fs[read: root], Fail[FsError] }
+is
+  map(paths, read_bytes)
+end

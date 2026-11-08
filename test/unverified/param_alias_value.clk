@@ -1,0 +1,22 @@
+module Unverified.ParamAliasValue
+
+-- A parameterized refined alias is a hidden precondition, so the
+-- function can't escape as a value (review #50).
+-- expect: `first` is only called, or passed directly where a function type is declared
+-- line: 20
+import Std.List (length)
+import Std.Core (unreachable)
+
+type NonEmpty[A] = List[A] where length(self) > 0
+
+function first(xs: NonEmpty[Int]) -> Int is
+  match xs
+    case Cons(h, _) => h
+    case Nil => unreachable()
+  end
+end
+
+function go() -> Int is
+  let g = first
+  g(Nil)
+end

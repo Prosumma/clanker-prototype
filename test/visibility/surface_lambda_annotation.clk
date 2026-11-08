@@ -1,0 +1,14 @@
+module Visibility.SurfaceLambdaAnnotation
+
+-- expect: the public function `check` mentions `Small`, which is private
+-- line: 11
+
+import Std.List (List, all)
+
+type Small = Int
+
+public function check(xs: List[Int]) -> Bool
+  ensures result == all(xs, function(x: Small) => x > 0)
+is
+  all(xs, function(x) => x > 0)
+end

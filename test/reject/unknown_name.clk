@@ -1,0 +1,10 @@
+module Reject.UnknownName
+
+-- expect: nothing named `lenght` is in scope
+-- line: 9
+
+import Std.List (length)
+
+function f(xs: List[Int]) -> Nat is
+  lenght(xs)
+end

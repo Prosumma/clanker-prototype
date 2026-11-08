@@ -1,0 +1,72 @@
+module Orders.Sync
+
+-- Exercises: parameterized effects as the security boundary, effect
+-- parameters checked against values, target-typed SQL interpolation,
+-- multi-line strings, derived decoders that enforce refinements, pipelines.
+
+import Std.Http (Http, Url, Https, get)
+import Std.Json (Decode, decode_json)
+import Std.Db (Db, Sql, execute)
+import Std.Log (Log, info)
+import Std.Clock (Timestamp, to_iso8601)
+import Std.Fail (Fail, fail, map_failure)
+import Std.List (List, map, sum)
+
+type Cents = Int where self >= 0
+
+type OrderId = newtype String deriving (Eq, Decode, Display)
+
+-- The derived decoder rejects a negative `total`: decoding checks the
+-- refinement, so invalid data can't get past the boundary.
+type Order = record
+  id: OrderId
+  customer: String
+  total: Cents
+end deriving (Eq, Decode)
+
+type SyncError = variant
+  RequestFailed(status: Int)
+  BadPayload(reason: String)
+end
+
+--| Copies orders changed since `since` from the order service into the
+--| warehouse database, and returns the number of new rows.
+--|
+--| The signature is the security review: this function can talk to one
+--| host and one database, and log. Nothing else.
+function sync_orders(since: Timestamp) -> Int
+  effects { Http[host: "orders.internal"], Db[database: "warehouse"], Log, Fail[SyncError] }
+is
+  -- Effect parameters become preconditions on the effect's operations:
+  -- under `Http[host: h]`, `get(url)` requires `url.host == h`. Here the
+  -- verifier proves it from the literal below.
+  let url = Url(
+    scheme: Https,
+    host: "orders.internal",
+    path: "/v1/orders",
+    query: [("since", to_iso8601(since))],
+  )
+  let response = get(url)
+  if response.status != 200 then
+    fail(RequestFailed(status: response.status))
+  end
+  let orders: List[Order] = map_failure(
+    function() => decode_json(response.body),
+    into: function(error) => BadPayload(reason: "${error}"),
+  )
+  let count = orders |> map(insert_order) |> sum
+  info("synced ${count} new orders since ${since}")
+  count
+end
+
+function insert_order(order: Order) -> Int
+  effects { Db[database: "warehouse"] }
+is
+  -- The literal's expected type is `Sql`, so each `${...}` becomes a bound
+  -- query parameter, never pasted text. SQL injection can't be expressed.
+  execute("""
+    insert into orders (id, customer, total)
+    values (${order.id}, ${order.customer}, ${order.total})
+    on conflict (id) do nothing
+    """)
+end

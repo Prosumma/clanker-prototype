@@ -1,0 +1,61 @@
+module Visibility.Accounts
+
+import Vis.Bank (
+  Account, Coin, Color, Red, Green, Point, Token, open, balance, deposit, double, token, two
+)
+
+-- What another module can do with Vis.Bank's public names: read public
+-- fields, call public functions, build and take apart a public newtype
+-- and variant, and verify against public contracts.
+function funded(id: Int) -> Account
+  ensures balance(result) == 25
+is
+  deposit(open(id), amount: 25)
+end
+
+function id_of(account: Account) -> Int is
+  account.id
+end
+
+function coin_value(coin: Coin) -> Int is
+  match coin
+    case Coin(n) => n + Coin(1).value
+  end
+end
+
+function is_red(color: Color) -> Bool is
+  match color
+    case Red => true
+    case Green => false
+  end
+end
+
+function keep(t: Token) -> Token is
+  t
+end
+
+function fresh() -> Token is
+  keep(token())
+end
+
+function moved(p: Point) -> Point
+  ensures result.x == p.y
+is
+  match p
+    case Point(x, y) => Point(x: y, y: x) with y = x
+  end
+end
+
+-- `double` is public and its body names only public things, so its
+-- definition is part of what this module can see.
+function four() -> Int
+  ensures result == 4
+is
+  double(2)
+end
+
+function two_again() -> Int
+  ensures result == 2
+is
+  two
+end

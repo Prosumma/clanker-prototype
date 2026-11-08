@@ -1,0 +1,17 @@
+module Visibility.SurfacePatternLabel
+
+-- expect: the public function `redeem` takes apart a `Ticket`, which has the private field `serial`
+-- line: 13
+
+public type Ticket = record
+  public owner: Int
+  serial: Int
+end
+
+public function redeem(t: Ticket) -> Int
+  requires match t
+    case Ticket(owner: _, serial: s) => s == 1
+  end
+is
+  t.owner
+end

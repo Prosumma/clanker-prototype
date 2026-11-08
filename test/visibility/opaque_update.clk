@@ -1,0 +1,10 @@
+module Visibility.OpaqueUpdate
+
+-- expect: `with` can't update an `Account` outside Vis.Bank
+-- line: 9
+
+import Vis.Bank (Account)
+
+function rename(account: Account) -> Account is
+  account with id = 2
+end

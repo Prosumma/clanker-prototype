@@ -1,0 +1,25 @@
+module Unverified.WriteNewValue
+
+-- A write to a value just built is attributed to it, though the TVar's
+-- term no longer mentions it (review #45).
+-- expect: the invariant `same` holds
+-- line: 22
+import Std.Stm (Stm, Atomic, TVar, new_tvar, read, write, atomically)
+import Std.Core (identical)
+
+type Pair = record
+  left: TVar[Int]
+  right: TVar[Int] where not identical(right, left)
+end
+
+invariant same(pair: Pair)
+  read(pair.left) == read(pair.right)
+end
+
+function make_bad() -> Pair
+  effects { Stm }
+is
+  let p = Pair(left: new_tvar(1), right: new_tvar(1))
+  write(p.left, 2)
+  p
+end

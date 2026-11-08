@@ -1,0 +1,10 @@
+module Std.Multiset
+
+--| A solver-level theory (DESIGN §4): specs use it to say "same elements".
+public primitive type Multiset[A]
+
+public primitive function multiset[A](xs: List[A]) -> Multiset[A]
+
+primitive instance[A: Eq] PartialEq[Multiset[A]]
+
+primitive instance[A: Eq] Eq[Multiset[A]]

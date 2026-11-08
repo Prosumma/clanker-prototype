@@ -1,0 +1,10 @@
+module Visibility.ImportPrivate
+
+-- expect: `helper` is private to Vis.Bank
+-- line: 6
+
+import Vis.Bank (helper)
+
+function f() -> Int is
+  helper(1)
+end

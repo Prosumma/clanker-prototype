@@ -1,0 +1,16 @@
+module Unverified.GenericEffect
+
+-- An operation's result comes from its handler, which may give any `S` (review #3).
+-- expect: the value satisfies the type annotation on `n`
+-- line: 14
+
+effect Ask[S]
+  function ask() -> S
+end
+
+function use_it() -> Int
+  effects { Ask[Int] }
+is
+  let n: Nat = ask()
+  100 / (n + 1)
+end

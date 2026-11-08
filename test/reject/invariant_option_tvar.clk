@@ -1,0 +1,18 @@
+module Reject.InvariantOptionTVar
+
+-- A TVar inside an `Option` field isn't owned either (review #44).
+-- expect: the field `right` of `Pair` holds a TVar
+-- line: 13
+import Std.Stm (Stm, Atomic, TVar, new_tvar, read, write, atomically)
+
+type Pair = record
+  left: TVar[Int]
+  right: Option[TVar[Int]]
+end
+
+invariant same(pair: Pair)
+  match pair.right
+    case Some(r) => read(pair.left) == read(r)
+    case None => true
+  end
+end

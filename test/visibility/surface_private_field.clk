@@ -1,0 +1,14 @@
+module Visibility.SurfacePrivateField
+
+-- expect: the public function `empty` reads `count`, which a `Box` keeps private
+-- line: 11
+
+public type Box = record
+  count: Int
+end
+
+public function empty() -> Box
+  ensures result.count == 0
+is
+  Box(count: 0)
+end

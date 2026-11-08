@@ -1,0 +1,17 @@
+module Reject.NonExhaustive
+
+-- expect: this match doesn't handle `Blue`
+-- line: 13
+
+type Color = variant
+  Red
+  Green
+  Blue
+end
+
+function name(c: Color) -> String is
+  match c
+    case Red => "red"
+    case Green => "green"
+  end
+end

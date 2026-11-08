@@ -1,0 +1,10 @@
+module Reject.LabelOrder
+
+-- expect: expected `front:` here, found `back:`
+-- line: 9
+
+import Std.List (append)
+
+function f(xs: List[Int], ys: List[Int]) -> List[Int] is
+  append(back: ys, front: xs)
+end

@@ -1,0 +1,11 @@
+module Visibility.OrphanLiteral
+
+-- expect: `IntLiteral` has no methods, so what its instances do comes from the compiler
+-- line: 10
+
+import Std.Core (IntLiteral)
+import Vis.Bank (Token)
+
+-- With it, `let t: Token = 5` would build a `Token` (review #69).
+instance IntLiteral[Token]
+end

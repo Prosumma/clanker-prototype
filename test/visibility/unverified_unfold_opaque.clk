@@ -1,0 +1,16 @@
+module Visibility.UnverifiedUnfoldOpaque
+
+-- expect: `open` can be unfolded here
+-- line: 13
+
+import Vis.Bank (open)
+
+-- `open`'s body isn't published, so unfolding it is an error, not a
+-- silent no-op (review #67).
+function id_of_opened(n: Int) -> Int is
+  let account = open(n)
+  proof
+    unfold open
+  end
+  account.id
+end

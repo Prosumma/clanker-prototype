@@ -1,0 +1,16 @@
+module Reject.EffectParamAny
+
+-- expect: `read_bytes` performs `Fs[read: root]`, but this function value may perform only `{ Fail[_] }`
+-- line: 12
+
+import Std.Fs (Fs, read_bytes)
+import Std.Fail (attempt)
+import Std.Path (Path)
+
+-- Reading a file needs `Fs`, and `attempt` handles only the failure.
+function exists(root: Path) -> Bool is
+  match attempt(function() => read_bytes(root))
+    case Ok(_) => true
+    case Err(_) => false
+  end
+end

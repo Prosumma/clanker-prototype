@@ -1,0 +1,12 @@
+module Unverified.Accumulator
+
+import Std.List (fold)
+
+-- expect: returns a value satisfying its declared result type
+-- line: 11
+type Cents = Int where self >= 0
+
+function refunds(amounts: List[Int]) -> Cents is
+  let start: Cents = 0
+  fold(amounts, initial: start, step: function(total, x) => total - x)
+end

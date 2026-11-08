@@ -1,0 +1,9 @@
+module Unverified.Graphemes
+
+import Std.Text (take_graphemes)
+
+-- expect: the precondition of `take_graphemes` holds
+-- line: 8
+function prefix(text: String) -> String is
+  take_graphemes(text, count: 3)
+end

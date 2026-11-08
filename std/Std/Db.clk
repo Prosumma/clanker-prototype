@@ -1,0 +1,12 @@
+module Std.Db
+
+import Std.Text (Template)
+
+--| A query. Interpolated values become bound parameters, never pasted text.
+public primitive type Sql
+
+primitive instance Template[Sql]
+
+public effect Db[database: String]
+  function execute(query: Sql) -> Nat
+end

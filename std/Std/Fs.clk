@@ -1,0 +1,17 @@
+module Std.Fs
+
+import Std.Path (Path)
+import Std.Bytes (Bytes)
+import Std.Fail (Fail)
+
+--| File-system access. `Fs[read: p]` permits reading `p` (DESIGN §3).
+public effect Fs[read: Path]
+end
+
+public type FsError = variant
+  NotFound
+  PermissionDenied
+end deriving (Eq, Display)
+
+public primitive function read_bytes(path: Path) -> Bytes
+  effects { Fs[read: path], Fail[FsError] }

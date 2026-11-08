@@ -1,0 +1,13 @@
+module Visibility.DisplayOpaque
+
+import Std.Console (Console, print_line)
+import Vis.Bank (open, token)
+
+-- A derived `Display` shows only what other modules can see: public
+-- fields, and `..` for the rest (review #65).
+function main() -> Unit
+  effects { Console }
+is
+  print_line("${open(3)}")
+  print_line("${token()}")
+end

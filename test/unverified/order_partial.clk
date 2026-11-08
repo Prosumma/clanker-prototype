@@ -1,0 +1,11 @@
+module Unverified.OrderPartial
+
+-- `PartialOrd` isn't total (review #11).
+-- expect: the postcondition of `total` holds
+-- line: 8
+
+function total[A: PartialOrd](x: A, y: A) -> Bool
+  ensures result
+is
+  x <= y or y <= x
+end

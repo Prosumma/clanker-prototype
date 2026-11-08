@@ -1,0 +1,9 @@
+module Unverified.WrongPostcondition
+
+-- expect: the postcondition of `increment` holds
+-- line: 6
+function increment(x: Int) -> Int
+  ensures result == x + 1
+is
+  x + 2
+end

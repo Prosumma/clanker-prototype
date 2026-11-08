@@ -1,0 +1,11 @@
+module Unverified.ConstantRefinement
+
+-- A constant is checked like a function's result; a wrong one would prove anything (review #16).
+-- expect: the argument for `balance` satisfies its field's refinement in `Account`
+-- line: 11
+
+type Account = record
+  balance: Int where balance >= 0
+end
+
+constant broken: Account = Account(balance: -5)

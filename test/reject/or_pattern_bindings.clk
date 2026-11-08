@@ -1,0 +1,15 @@
+module Reject.OrPatternBindings
+
+-- expect: every alternative of an or-pattern must bind the same names
+-- line: 13
+
+type Shape = variant
+  Circle(radius: Int)
+  Square(side: Int)
+end
+
+function size(s: Shape) -> Int is
+  match s
+    case Circle(r) | Square(side) => 0
+  end
+end

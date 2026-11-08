@@ -1,0 +1,22 @@
+module Reject.InvariantPattern
+
+-- A pattern would take an invariant type's TVars out of it (review #33).
+-- expect: a `Pair` can't be taken apart by a pattern
+-- line: 20
+import Std.Stm (TVar, read)
+import Std.Core (identical)
+
+type Pair = record
+  left: TVar[Int]
+  right: TVar[Int] where not identical(right, left)
+end
+
+invariant same(pair: Pair)
+  read(pair.left) == read(pair.right)
+end
+
+function left_of(p: Pair) -> TVar[Int] is
+  match p
+    case Pair(left, _) => left
+  end
+end

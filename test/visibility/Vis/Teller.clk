@@ -1,0 +1,11 @@
+module Vis.Teller
+
+import Vis.Bank (Account, Cents, balance, deposit)
+
+-- A module under `Vis/` importing its sibling: verified on its own, it
+-- finds Vis.Bank from the root its own name gives (review #64).
+public function pay(account: Account, amount: Cents) -> Account
+  ensures balance(result) >= balance(account)
+is
+  deposit(account, amount)
+end

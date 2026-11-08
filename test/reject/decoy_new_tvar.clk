@@ -1,0 +1,27 @@
+module Reject.DecoyNewTvar
+
+-- expect: the TVar field `t` of a new `Cell` must be a new TVar: write `stm_new_tvar(...)` here
+-- line: 26
+
+import Std.Stm (Stm, TVar, new_tvar as stm_new_tvar, read)
+
+-- An own `new_tvar` that hands back an existing TVar can't stand in for
+-- std's: construction is checked by entity, and the message names std's
+-- by what this file calls it (review #75).
+type Cell = record
+  t: TVar[Int]
+end
+
+invariant positive(cell: Cell)
+  read(cell.t) > 0
+end
+
+function new_tvar(t: TVar[Int]) -> TVar[Int] is
+  t
+end
+
+function make(t: TVar[Int]) -> Cell
+  effects { Stm }
+is
+  Cell(t: new_tvar(t))
+end

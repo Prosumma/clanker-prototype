@@ -1,0 +1,62 @@
+cabal-version:      3.0
+name:               clanker
+version:            0.0.0
+synopsis:           Throwaway prototype of the Clanker language
+build-type:         Simple
+extra-doc-files:    README.md
+
+common shared
+  default-language:   GHC2021
+  default-extensions:
+    DerivingStrategies
+    LambdaCase
+    OverloadedStrings
+  ghc-options:        -Wall -Wcompat
+  build-depends:
+    base >=4.18 && <5,
+    containers,
+    text
+
+library
+  import:          shared
+  hs-source-dirs:  src
+  exposed-modules:
+    Clanker.Syntax
+    Clanker.Parser
+    Clanker.Pretty
+    Clanker.Types
+    Clanker.Load
+    Clanker.Match
+    Clanker.Check
+    Clanker.Eval
+    Clanker.Examples
+    Clanker.Driver
+    Clanker.Verify
+    Clanker.Smt
+  build-depends:
+    bytestring,
+    containers,
+    directory,
+    filepath,
+    megaparsec,
+    mtl,
+    process,
+    prettyprinter,
+    simple-smt,
+    stm
+
+executable clanker
+  import:         shared
+  hs-source-dirs: app
+  main-is:        Main.hs
+  build-depends:  clanker
+
+test-suite round-trip
+  import:         shared
+  type:           exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is:        Main.hs
+  build-depends:
+    clanker,
+    directory,
+    filepath

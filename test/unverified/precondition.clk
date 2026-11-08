@@ -1,0 +1,9 @@
+module Unverified.Precondition
+
+import Std.List (at)
+
+-- expect: the precondition of `at` holds
+-- line: 8
+function first(xs: List[Int]) -> Int is
+  at(xs, index: 0)
+end

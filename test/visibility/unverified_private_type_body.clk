@@ -1,0 +1,12 @@
+module Visibility.UnverifiedPrivateTypeBody
+
+-- expect: the postcondition of `same_again` holds
+-- line: 9
+
+import Vis.Quiet (same)
+
+function same_again(x: Int) -> Int
+  ensures result == x
+is
+  same(x)
+end

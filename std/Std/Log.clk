@@ -1,0 +1,5 @@
+module Std.Log
+
+public effect Log
+  function info(message: String) -> Unit
+end

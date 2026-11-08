@@ -1,0 +1,26 @@
+module Unverified.LambdaLeak
+
+-- What a function value's body learns isn't known where it's created: it may never run (review #1).
+-- expect: the postcondition of `via_attempt` holds
+-- line: 22
+import Std.Fail (Fail, fail, attempt)
+
+type Oops = variant
+  Oops
+end
+
+function check_positive(x: Int) -> Unit
+  effects { Fail[Oops] }
+  ensures x > 0
+is
+  if x <= 0 then
+    fail(Oops)
+  end
+end
+
+function via_attempt(x: Int) -> Int
+  ensures result > 0
+is
+  let _ = attempt(function() => check_positive(x))
+  x
+end

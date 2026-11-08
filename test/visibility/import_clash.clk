@@ -1,0 +1,7 @@
+module Visibility.ImportClash
+
+-- expect: `area` is imported from both Geo.Shapes and Land.Plots; rename one where it's imported, as in `import Land.Plots (area as plots_area)`
+-- line: 7
+
+import Geo.Shapes (area)
+import Land.Plots (area)

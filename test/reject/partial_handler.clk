@@ -1,0 +1,12 @@
+module Reject.PartialHandler
+
+-- A handler for one operation of `Console` would grant the other (review #4).
+-- expect: this handler handles `Console` but has no clause for `print_line`
+-- line: 9
+import Std.Console (Console, print_line, print_error)
+
+function sneaky() -> Unit is
+  handle print_line("pwned from a pure function")
+    on print_error(_) => resume(())
+  end
+end

@@ -1,0 +1,19 @@
+module Unverified.Contravariant
+
+-- A function needing more than the parameter's type promises can't be passed as that type (review #2).
+-- expect: this function needs no more of its arguments than the parameter's type promises
+-- line: 18
+
+type Cents = Int where self >= 0
+
+function apply_cents(f: (Cents) -> Int, x: Cents) -> Int is
+  f(x)
+end
+
+function needs_positive(y: Int where y > 0) -> Int is
+  100 / y
+end
+
+function go() -> Int is
+  apply_cents(needs_positive, 0)
+end

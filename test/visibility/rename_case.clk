@@ -1,0 +1,7 @@
+module Visibility.RenameCase
+
+-- expect: a rename keeps the name's case: `area` can't become `Area`
+-- line: 7
+
+import Geo.Shapes (area)
+import Land.Plots (area as Area)

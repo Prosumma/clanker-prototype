@@ -1,0 +1,24 @@
+module Unverified.MutualThroughCalc
+
+-- A call in a `calc` justification is a call: the two lemmas are one recursive group (review #9).
+-- expect: the `decreases` measure goes down from `a` to `b`
+-- line: 13
+
+lemma a(n: Nat)
+  ensures n >= 0
+  decreases n
+proof
+  calc
+    0
+      == 0 by b(n)
+  end
+end
+
+lemma b(n: Nat)
+  ensures n >= 0
+  decreases n
+proof
+  if n > 0 then
+    a(n - 1)
+  end
+end

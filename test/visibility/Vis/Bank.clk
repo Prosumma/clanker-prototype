@@ -1,0 +1,70 @@
+module Vis.Bank
+
+-- The library the visibility tests use (DESIGN §6): a public alias, a
+-- record with a private field, an opaque newtype, a public variant, and
+-- private declarations.
+public type Cents = Int where self >= 0
+
+--| An account: anyone can read its id, and its balance through `balance`.
+public type Account = record
+  public id: Int
+  cents: Cents
+end deriving (Display)
+
+public type Token = newtype Int deriving (Display)
+
+public type Coin = newtype public Int
+
+public type Color = variant
+  Red
+  Green
+end
+
+public type Point = record
+  public x: Int
+  public y: Int
+end
+
+type Secret = record
+  public code: Int
+end
+
+function helper(x: Int) -> Int is
+  x + 1
+end
+
+public function open(id: Int) -> Account
+  ensures balance(result) == 0
+is
+  Account(id, cents: 0)
+end
+
+public function balance(account: Account) -> Cents is
+  account.cents
+end
+
+public function deposit(account: Account, amount: Cents) -> Account
+  ensures balance(result) == balance(account) + amount
+is
+  account with cents = account.cents + amount
+end
+
+public function token() -> Token is
+  Token(helper(0))
+end
+
+public function secret_code() -> Int is
+  Secret(code: 7).code
+end
+
+--| Its body names only public things, so other modules' proofs can
+--| unfold it.
+public function double(x: Int) -> Int is
+  x + x
+end
+
+--| Its value builds an `Account`, whose `cents` is private, so other
+--| modules know only that it's an `Account`.
+public constant first_account: Account = Account(id: 0, cents: 0)
+
+public constant two: Int = double(1)

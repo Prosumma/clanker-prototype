@@ -1,0 +1,17 @@
+module Verified.LiveAfterHandle
+
+import Std.Fail (Fail, fail)
+
+type Oops = variant
+  Oops
+end
+
+-- The companion of `test/unverified/handled_failure.clk`: the same code
+-- with a safe division verifies.
+function f() -> Int is
+  let _ = handle fail(Oops)
+    on fail(_) => 0
+  end
+  let two = 2
+  100 / two
+end

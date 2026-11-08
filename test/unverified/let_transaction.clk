@@ -1,0 +1,23 @@
+module Unverified.LetTransaction
+
+-- A transaction bound with `let` must keep the invariant too (review #13).
+-- expect: the invariant `same` holds again when this transaction commits
+-- line: 21
+import Std.Stm (Stm, Atomic, TVar, read, write, atomically)
+import Std.Core (identical)
+
+type Pair = record
+  left: TVar[Int]
+  right: TVar[Int] where not identical(right, left)
+end
+
+invariant same(pair: Pair)
+  read(pair.left) == read(pair.right)
+end
+
+function reset_left(pair: Pair) -> Unit
+  effects { Atomic }
+is
+  let tx = function() => write(pair.left, 0)
+  atomically(tx)
+end

@@ -1,0 +1,23 @@
+module Unverified.ResumeEnsures
+
+-- The handled code assumes an operation's postcondition, so `resume` owes
+-- it (review #58).
+-- expect: the value passed to `resume` satisfies the operation's result type and postcondition
+-- line: 21
+
+effect Counter
+  function next() -> Int
+    ensures result > 0
+end
+
+function take() -> Int where self > 0
+  effects { Counter }
+is
+  next()
+end
+
+function count() -> Int is
+  handle take()
+    on next() => resume(-1)
+  end
+end

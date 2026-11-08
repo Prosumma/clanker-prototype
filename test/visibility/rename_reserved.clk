@@ -1,0 +1,7 @@
+module Visibility.RenameReserved
+
+-- expect: `resume` is reserved (it's a handler clause's continuation), so it can't be an import's new name
+-- line: 7
+
+import Geo.Shapes (area)
+import Land.Plots (area as resume)

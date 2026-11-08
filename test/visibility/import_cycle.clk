@@ -1,0 +1,12 @@
+module Visibility.ImportCycle
+
+-- expect: modules Cycle.Ping, Cycle.Pong import each other
+-- line: 0
+
+import Cycle.Ping (ping)
+
+function absurd() -> Int
+  ensures result == 1 and result == 2
+is
+  ping(0)
+end

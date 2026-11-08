@@ -1,0 +1,9 @@
+module Unverified.Overflow
+
+import Std.Int (UInt8)
+
+-- expect: the result fits in `UInt8`
+-- line: 8
+function add(a: UInt8, b: UInt8) -> UInt8 is
+  a + b
+end

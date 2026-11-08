@@ -1,0 +1,10 @@
+module Reject.PositionalLabel
+
+-- expect: takes this argument without a label
+-- line: 9
+
+import Std.Int (UInt64, Wrapping, bit_xor)
+
+function f(a: Wrapping[UInt64], b: Wrapping[UInt64]) -> Wrapping[UInt64] is
+  bit_xor(left: a, b)
+end

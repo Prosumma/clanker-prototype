@@ -1,0 +1,16 @@
+module Reject.LabelBool
+
+-- expect: Bool arguments are always labeled
+-- line: 15
+
+function describe(n: Int, verbose: Bool) -> String is
+  if verbose then
+    "number ${n}"
+  else
+    "${n}"
+  end
+end
+
+function f() -> String is
+  describe(3, true)
+end

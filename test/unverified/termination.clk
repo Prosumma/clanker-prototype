@@ -1,0 +1,14 @@
+module Unverified.Termination
+
+import Std.List (length)
+
+-- expect: the `decreases` measure goes down
+-- line: 12
+function spin(xs: List[Int]) -> Int
+  decreases length(xs)
+is
+  match xs
+    case Nil => 0
+    case Cons(_, _) => spin(xs)
+  end
+end

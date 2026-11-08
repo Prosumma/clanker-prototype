@@ -1,0 +1,17 @@
+module Unverified.OptionInstantiation
+
+-- `A` inside an `Option[A]` argument wasn't checked, so the result's refinement can't be assumed (review #3).
+-- expect: the value satisfies the type annotation on `n`
+-- line: 15
+
+function unwrap_or[A](o: Option[A], default: A) -> A is
+  match o
+    case Some(v) => v
+    case None => default
+  end
+end
+
+function bad() -> Nat is
+  let n: Nat = unwrap_or(Some(-20), default: 0)
+  n
+end

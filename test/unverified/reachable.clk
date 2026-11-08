@@ -1,0 +1,13 @@
+module Unverified.Reachable
+
+import Std.Core (unreachable)
+
+-- expect: this is unreachable
+-- line: 11
+function pick(flag: Bool) -> Int is
+  if flag then
+    1
+  else
+    unreachable()
+  end
+end

@@ -1,0 +1,20 @@
+module Unverified.ShortCircuitWrite
+
+-- The right operand of `and` doesn't run when the left is false, so neither does its write (review #12).
+-- expect: the postcondition of `f` holds
+-- line: 10
+import Std.Stm (Stm, TVar, read, write)
+
+function f(t: TVar[Int]) -> Unit
+  effects { Stm }
+  ensures read(t) == 5
+is
+  let _ = false
+    and (if true then
+      write(t, 5)
+      true
+    else
+      true
+    end)
+  ()
+end

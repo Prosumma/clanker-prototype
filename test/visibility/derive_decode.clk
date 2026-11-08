@@ -1,0 +1,12 @@
+module Visibility.DeriveDecode
+
+-- expect: can't derive `Decode` for `Ticket`: its field `serial` is private
+-- line: 9
+
+import Std.Json (Decode)
+
+-- Decoding would build a `Ticket` in any module (review #65).
+public type Ticket = record
+  public owner: Int
+  serial: Int
+end deriving (Decode)

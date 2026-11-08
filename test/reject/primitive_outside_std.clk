@@ -1,0 +1,13 @@
+module Reject.PrimitiveOutsideStd
+
+-- expect: a `primitive instance` can only be declared in the standard library
+-- line: 13
+
+import Std.Core (IntLiteral)
+
+type Foo = record
+  n: Int
+end
+
+-- The runtime implements only std's primitives (review #73).
+primitive instance IntLiteral[Foo]

@@ -1,0 +1,14 @@
+module Unverified.IllFormedAlias
+
+-- A refinement must meet its calls' preconditions; otherwise it could
+-- say anything (review #47).
+-- expect: the argument for `x` satisfies `pos_id`'s parameter type
+-- line: 14
+
+function pos_id(x: Int where x > 0) -> Int
+  ensures result > 0
+is
+  x
+end
+
+type Fixed = Int where pos_id(self) == self

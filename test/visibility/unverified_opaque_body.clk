@@ -1,0 +1,15 @@
+module Visibility.UnverifiedOpaqueBody
+
+-- expect: the postcondition of `id_of_opened` holds
+-- line: 12
+
+import Vis.Bank (open)
+
+-- `open`'s contract says only that the balance is 0. Its body, which
+-- builds an `Account` with a private field, isn't part of its public
+-- surface, so a proof here can't see that it keeps the id (DESIGN §6).
+function id_of_opened(n: Int) -> Int
+  ensures result == n
+is
+  open(n).id
+end

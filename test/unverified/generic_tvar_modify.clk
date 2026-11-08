@@ -1,0 +1,21 @@
+module Unverified.GenericTVarModify
+
+-- A function argument returning an `A` that may be written to a
+-- `TVar[Cents]` owes `Cents` for its result (review #43).
+-- expect: the function passed here returns a value satisfying its declared result type
+-- line: 20
+import Std.Stm (Stm, Atomic, TVar, new_tvar, read, write, atomically)
+
+type Cents = Int where self >= 0
+
+function modify[A](t: TVar[A], f: (A) -> A) -> Unit
+  effects { Stm }
+is
+  write(t, f(read(t)))
+end
+
+function spend(balance: TVar[Cents]) -> Unit
+  effects { Stm }
+is
+  modify(balance, function(x) => x - 100)
+end

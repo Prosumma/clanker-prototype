@@ -1,0 +1,8 @@
+module Reject.MissingConstraint
+
+-- expect: `A` needs a `PartialEq` constraint
+-- line: 7
+
+function same[A](x: A, y: A) -> Bool is
+  x == y
+end

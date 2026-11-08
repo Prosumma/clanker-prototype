@@ -1,0 +1,20 @@
+module Unverified.HandlerClause
+
+effect Ask
+  function ask(limit: Int where limit > 0) -> Int
+end
+
+function asks() -> Int
+  effects { Ask }
+is
+  ask(10)
+end
+
+-- expect: the divisor isn't zero
+-- line: 18
+-- The clause may assume `limit > 0`, but divides by `limit - 1`.
+function run() -> Int is
+  handle asks()
+    on ask(limit) => resume(100 / (limit - 1))
+  end
+end

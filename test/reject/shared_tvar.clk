@@ -1,0 +1,23 @@
+module Reject.SharedTVar
+
+-- Two values of an invariant type sharing a TVar: one could break the other's invariant (review #33).
+-- expect: the TVar field `left` of a new `Pair` must be a new TVar
+-- line: 22
+import Std.Stm (Stm, TVar, new_tvar, read)
+import Std.Core (identical)
+
+type Pair = record
+  left: TVar[Int]
+  right: TVar[Int] where not identical(right, left)
+end
+
+invariant same(pair: Pair)
+  read(pair.left) == read(pair.right)
+end
+
+function make_two(a: Int) -> (Pair, Pair)
+  effects { Stm }
+is
+  let shared = new_tvar(a)
+  (Pair(left: shared, right: new_tvar(a)), Pair(left: shared, right: new_tvar(a)))
+end

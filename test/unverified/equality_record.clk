@@ -1,0 +1,16 @@
+module Unverified.EqualityRecord
+
+-- A derived `==` over a float field isn't identity (review #11).
+-- expect: the postcondition of `refl` holds
+-- line: 13
+import Std.Float (Float64)
+
+type P = record
+  x: Float64
+end deriving (PartialEq)
+
+function refl(p: P) -> Bool
+  ensures result
+is
+  p == p
+end

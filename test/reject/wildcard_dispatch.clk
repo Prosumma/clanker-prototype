@@ -1,0 +1,17 @@
+module Reject.WildcardDispatch
+
+-- expect: this arm catches `Color` values with `_` or a variable
+-- line: 15
+
+type Color = variant
+  Red
+  Green
+  Blue
+end
+
+function is_red(c: Color) -> Bool is
+  match c
+    case Red => true
+    case _ => false
+  end
+end

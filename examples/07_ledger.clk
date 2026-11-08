@@ -1,0 +1,74 @@
+module Examples.Ledger
+
+-- Exercises: STM (TVar, read, write, retry, atomically), a multi-TVar
+-- invariant, `old(...)` in postconditions, structured concurrency.
+
+import Std.Stm (Stm, Atomic, TVar, new_tvar, read, write, retry, atomically)
+import Std.Concurrent (Spawn, run_concurrently)
+import Std.Console (Console, print_line)
+import Std.Core (identical)
+
+type Cents = Int where self >= 0
+
+-- Three different TVars. Without the refinements, a Ledger whose
+-- `checking` and `total` were the same TVar would satisfy the type, and
+-- `move_to_savings` would change the total.
+type Ledger = record
+  checking: TVar[Cents]
+  savings: TVar[Cents] where not identical(savings, checking)
+  total: TVar[Cents] where not identical(total, checking) and not identical(total, savings)
+end
+
+--| Every `Stm` function may assume this on entry for any Ledger it can
+--| reach, and must re-establish it on exit (DESIGN §5). Inside a spec,
+--| `read` means the value in the current transaction's view.
+invariant balanced(ledger: Ledger)
+  read(ledger.checking) + read(ledger.savings) == read(ledger.total)
+end
+
+function open_ledger(initial: Cents) -> Ledger
+  effects { Stm }
+is
+  Ledger(checking: new_tvar(initial), savings: new_tvar(0), total: new_tvar(initial))
+end
+
+--| Moves money from checking to savings, waiting until enough is available.
+function move_to_savings(ledger: Ledger, amount: Cents where amount > 0) -> Unit
+  effects { Stm }
+  ensures read(ledger.total) == old(read(ledger.total))
+is
+  let available = read(ledger.checking)
+  if amount > available then
+    retry()
+  else
+    write(ledger.checking, available - amount)
+    write(ledger.savings, read(ledger.savings) + amount)
+  end
+end
+
+function deposit(ledger: Ledger, amount: Cents) -> Unit
+  effects { Stm }
+is
+  -- The invariant is broken between these two writes. That's fine: it
+  -- only has to hold when the function returns.
+  write(ledger.checking, read(ledger.checking) + amount)
+  write(ledger.total, read(ledger.total) + amount)
+end
+
+--| Prints "checking: 300, savings: 1200" whatever order the tasks run in:
+--| whichever transfer can't be covered waits (via `retry`) for the deposit.
+function main() -> Unit
+  effects { Console, Atomic, Spawn }
+is
+  let ledger = atomically(function() => open_ledger(1000))
+  run_concurrently([
+    function() => atomically(function() => move_to_savings(ledger, amount: 300)),
+    function() => atomically(function() => move_to_savings(ledger, amount: 900)),
+    function() => atomically(function() => deposit(ledger, amount: 500)),
+  ])
+  let summary = atomically(function() => {
+    checking: read(ledger.checking),
+    savings: read(ledger.savings),
+  })
+  print_line("checking: ${summary.checking}, savings: ${summary.savings}")
+end

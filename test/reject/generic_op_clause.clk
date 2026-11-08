@@ -1,0 +1,23 @@
+module Reject.GenericOpClause
+
+-- A clause for a generic operation must work for every `A`, so it can't
+-- pick one (review #57).
+-- expect: expected `A of gen #
+-- line: 21
+
+effect Gen
+  function gen[A]() -> A
+end
+
+function next() -> Int
+  effects { Gen }
+is
+  let n: Int = gen()
+  n + 1
+end
+
+function forty_two() -> Int is
+  handle next()
+    on gen() => resume("forty-two")
+  end
+end

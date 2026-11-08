@@ -1,0 +1,7 @@
+module Unverified.Division
+
+-- expect: the divisor isn't zero
+-- line: 6
+function average(total: Int, count: Nat) -> Int is
+  total / count
+end

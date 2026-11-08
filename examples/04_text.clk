@@ -1,0 +1,66 @@
+module Examples.Text
+
+-- Exercises: Unicode string literals, explicit length units, grapheme
+-- operations, explicit locales, interpolation, the Fail-based decoding
+-- API, escaped zero-width joiners.
+
+import Std.Text (
+  String, Locale, grapheme_count, char_count, byte_count, take_graphemes, to_uppercase,
+  to_uppercase_invariant, decode_utf8
+)
+import Std.Bytes (Bytes, encode_utf8)
+import Std.Fail (attempt)
+
+--| example: describe("naïve") == "naïve: 5 graphemes, 5 chars, 6 bytes"
+--| example: describe("👍🏽") == "👍🏽: 1 graphemes, 2 chars, 8 bytes"
+function describe(text: String) -> String is
+  "${text}: ${grapheme_count(text)} graphemes, ${char_count(text)} chars, ${byte_count(text)} bytes"
+end
+
+-- The spec is phrased with `take_graphemes` rather than as "at most
+-- limit + 1 graphemes": grapheme counts of concatenations aren't facts that
+-- hold in every Unicode version, so the verifier doesn't have them
+-- (DESIGN §2.1).
+--| Shortens `text` to its first `limit` user-visible characters plus an
+--| ellipsis, or leaves it alone if it already fits.
+--|
+--| example: truncate("héllo wörld", limit: 5) == "héllo…"
+--| example: truncate("hi", limit: 5) == "hi"
+function truncate(text: String, limit: Int where limit >= 1) -> String
+  ensures grapheme_count(text) <= limit implies result == text
+  ensures grapheme_count(text) > limit implies result == "${take_graphemes(text, count: limit)}…"
+is
+  if grapheme_count(text) <= limit then
+    text
+  else
+    "${take_graphemes(text, count: limit)}…"
+  end
+end
+
+--| example: shout("istanbul", locale: Locale(tag: "tr")) == "İSTANBUL!"
+--| example: shout("istanbul", locale: Locale(tag: "en")) == "ISTANBUL!"
+function shout(text: String, locale: Locale) -> String is
+  "${to_uppercase(text, locale)}!"
+end
+
+--| example: shout_anywhere("istanbul") == "ISTANBUL!"
+function shout_anywhere(text: String) -> String is
+  "${to_uppercase_invariant(text)}!"
+end
+
+--| example: display_name(encode_utf8("Zoë")) == "Zoë"
+function display_name(raw: Bytes) -> String is
+  -- `decode_utf8` performs `Fail[DecodeError]`; `attempt` turns that into
+  -- a Result we can inspect here.
+  match attempt(function() => decode_utf8(raw))
+    case Ok(name) => name
+    case Err(_) => "(invalid UTF-8)"
+  end
+end
+
+--| One grapheme made of five scalars joined by zero-width joiners. Raw
+--| ZWJs are rejected in source (DESIGN §6), so they're written as escapes.
+--|
+--| example: grapheme_count(family) == 1
+--| example: char_count(family) == 5
+constant family: String = "👨\u{200D}👩\u{200D}👧"

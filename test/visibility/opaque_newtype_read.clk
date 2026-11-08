@@ -1,0 +1,10 @@
+module Visibility.OpaqueNewtypeRead
+
+-- expect: the wrapped value of a `Token` is private to Vis.Bank
+-- line: 9
+
+import Vis.Bank (Token)
+
+function unwrap(t: Token) -> Int is
+  t.value
+end

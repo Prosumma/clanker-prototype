@@ -1,0 +1,8 @@
+module Reject.CallNonFunction
+
+-- expect: `Nil` isn't a function, so it can't be called
+-- line: 7
+
+function f() -> List[Int] is
+  Nil()
+end

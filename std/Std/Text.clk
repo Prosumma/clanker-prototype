@@ -1,0 +1,55 @@
+module Std.Text
+
+-- Strings are always valid UTF-8. Every length says its unit (DESIGN §2.1).
+
+import Std.Core (Hash)
+import Std.Bytes (Bytes)
+import Std.Fail (Fail)
+
+public primitive type String
+
+primitive instance PartialEq[String]
+
+primitive instance Eq[String]
+
+primitive instance PartialOrd[String]
+
+primitive instance Ord[String]
+
+primitive instance Hash[String]
+
+primitive instance Display[String]
+
+--| A string literal whose expected type has an instance of this class has
+--| that type, and its interpolations go through the type (DESIGN §2.1).
+public class Template[T]
+end
+
+public type Locale = record
+  public tag: String
+end
+
+public type DecodeError = variant
+  InvalidUtf8(offset: Nat)
+end deriving (Eq, Display)
+
+--| The Unicode scalar values of `text`.
+public primitive function chars(text: String) -> List[Char]
+
+public primitive function words(text: String) -> List[String]
+
+public primitive function grapheme_count(text: String) -> Nat
+
+public primitive function char_count(text: String) -> Nat
+
+public primitive function byte_count(text: String) -> Nat
+
+public primitive function take_graphemes(text: String, count: Nat) -> String
+  requires count <= grapheme_count(text)
+
+public primitive function to_uppercase(text: String, locale: Locale) -> String
+
+public primitive function to_uppercase_invariant(text: String) -> String
+
+public primitive function decode_utf8(bytes: Bytes) -> String
+  effects { Fail[DecodeError] }

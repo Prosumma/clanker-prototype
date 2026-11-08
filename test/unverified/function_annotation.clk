@@ -1,0 +1,10 @@
+module Unverified.FunctionAnnotation
+
+-- A `let` annotated with a function type checks the function against it,
+-- as a parameter's type would (review #2, #22).
+-- expect: the function passed here returns a value satisfying its declared result type
+-- line: 8
+function broken() -> Nat is
+  let f: (Nat) -> Nat = function(x) => x - 100
+  f(5)
+end

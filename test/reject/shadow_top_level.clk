@@ -1,0 +1,11 @@
+module Reject.ShadowTopLevel
+
+-- expect: would shadow the top-level `length`
+-- line: 9
+
+import Std.List (length)
+
+function f(xs: List[Int]) -> Int is
+  let length = 3
+  length
+end

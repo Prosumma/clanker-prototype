@@ -1,0 +1,14 @@
+module Unverified.UpdateOtherField
+
+-- Updating `lo` can break `hi`'s refinement, which mentions it (review #15).
+-- expect: after the update, `hi` satisfies its field's refinement in `Range`
+-- line: 13
+
+type Range = record
+  lo: Int
+  hi: Int where hi >= lo
+end
+
+function past(r: Range) -> Range is
+  r with lo = r.hi + 1
+end

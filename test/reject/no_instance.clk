@@ -1,0 +1,13 @@
+module Reject.NoInstance
+
+-- expect: `Point` has no `Display` instance
+-- line: 12
+
+type Point = record
+  x: Int
+  y: Int
+end
+
+function show(p: Point) -> String is
+  "at ${p}"
+end

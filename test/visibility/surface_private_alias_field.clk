@@ -1,0 +1,10 @@
+module Visibility.SurfacePrivateAliasField
+
+-- expect: the public type `Wallet` mentions `Amount`, which is private
+-- line: 8
+
+type Amount = Int where self >= 0
+
+public type Wallet = record
+  public amount: Amount
+end

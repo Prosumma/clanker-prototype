@@ -1,0 +1,13 @@
+module Reject.PartialStmHandler
+
+-- Handling only `retry` would let a pure function write a TVar (review #4).
+-- Since review #56, no user handler may take `Stm` at all.
+-- expect: `Stm` can't be handled here: only `atomically` handles it
+-- line: 10
+import Std.Stm (Stm, TVar, write, retry)
+
+function pure_writer(t: TVar[Int]) -> Unit is
+  handle write(t, -5)
+    on retry() => ()
+  end
+end

@@ -1,0 +1,21 @@
+module Std.Stm
+
+-- Software transactional memory (DESIGN §5).
+
+--| A transactional variable. Its contents may not contain another TVar
+--| (DESIGN §8).
+public primitive type TVar[A]
+
+public effect Stm
+  function new_tvar[A](initial: A) -> TVar[A]
+  function read[A](tvar: TVar[A]) -> A
+  function write[A](tvar: TVar[A], value: A) -> Unit
+  function retry() -> Never
+end
+
+--| Permission to run transactions.
+public effect Atomic
+end
+
+public primitive function atomically[A](transaction: () -> A effects { Stm }) -> A
+  effects { Atomic }

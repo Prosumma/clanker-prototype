@@ -1,0 +1,13 @@
+module Reject.FloatMeasure
+
+-- A measure must be an integer: what goes down and stays non-negative
+-- can't go down forever (review #59).
+-- expect: a `decreases` measure must be an integer (or a tuple of integers), not a `Float64`
+-- line: 10
+import Std.Float (Float64)
+
+function halves(x: Float64) -> Int
+  decreases x
+is
+  0
+end

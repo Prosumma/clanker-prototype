@@ -1,0 +1,12 @@
+module Visibility.OpaquePattern
+
+-- expect: can't be taken apart by a pattern outside Vis.Bank
+-- line: 10
+
+import Vis.Bank (Account)
+
+function peek(account: Account) -> Int is
+  match account
+    case Account(_, cents) => cents
+  end
+end

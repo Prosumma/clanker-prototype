@@ -1,0 +1,22 @@
+module Std.Char
+
+import Std.Core (Hash)
+
+--| A Unicode scalar value: any code point except a surrogate.
+public primitive type Char
+
+primitive instance PartialEq[Char]
+
+primitive instance Eq[Char]
+
+primitive instance PartialOrd[Char]
+
+primitive instance Ord[Char]
+
+primitive instance Hash[Char]
+
+primitive instance Display[Char]
+
+public primitive function is_ascii_digit(c: Char) -> Bool
+
+public primitive function digit_value(c: Char where is_ascii_digit(c)) -> Nat

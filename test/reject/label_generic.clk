@@ -1,0 +1,13 @@
+module Reject.LabelGeneric
+
+-- Two type-variable parameters can be the same type, so their arguments could be swapped (review #37).
+-- expect: label this argument `first: ...`
+-- line: 12
+
+function pair_up[A, B](first: A, second: B) -> (A, B) is
+  (first, second)
+end
+
+function use_it(x: Int, y: Int) -> (Int, Int) is
+  pair_up(y, x)
+end

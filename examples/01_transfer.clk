@@ -1,0 +1,57 @@
+module Examples.Transfer
+
+-- Exercises: nominal records and variants, refinement types, newtypes,
+-- contracts (requires/ensures), record update, doc-comment examples.
+
+--| A non-negative amount of money, in cents.
+type Cents = Int where self >= 0
+
+type AccountId = newtype Int deriving (Eq)
+
+type Account = record
+  id: AccountId
+  balance: Cents
+end deriving (Eq)
+
+type Transferred = record
+  source: Account
+  target: Account
+end deriving (Eq)
+
+type TransferError = variant
+  InsufficientFunds(needed: Cents, available: Cents)
+end deriving (Eq)
+
+--| Moves `amount` from `source` to `target`. Money is conserved.
+--|
+--| example:
+--|   let alice = Account(id: AccountId(1), balance: 500)
+--|   let bob   = Account(id: AccountId(2), balance: 0)
+--|   transfer(from: alice, to: bob, amount: 200)
+--|     == Ok(Transferred(source: alice with balance = 300, target: bob with balance = 200))
+--|
+--| example:
+--|   let alice = Account(id: AccountId(1), balance: 50)
+--|   let bob   = Account(id: AccountId(2), balance: 0)
+--|   transfer(from: alice, to: bob, amount: 200)
+--|     == Err(InsufficientFunds(needed: 200, available: 50))
+function transfer(
+  from source: Account,
+  to target: Account,
+  amount: Cents where amount > 0,
+) -> Result[TransferError, Transferred]
+  requires source.id != target.id
+  ensures match result
+    case Ok(t) => t.source.balance + t.target.balance == source.balance + target.balance
+    case Err(_) => true
+  end
+is
+  if amount > source.balance then
+    Err(InsufficientFunds(needed: amount, available: source.balance))
+  else
+    Ok(Transferred(
+      source: source with balance = source.balance - amount,
+      target: target with balance = target.balance + amount,
+    ))
+  end
+end

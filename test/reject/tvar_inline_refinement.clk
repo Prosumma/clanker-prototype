@@ -1,0 +1,10 @@
+module Reject.TVarInlineRefinement
+
+-- A TVar's refinement is part of its type, so it's named (DESIGN §5).
+-- expect: a TVar's refined contents need a name
+-- line: 8
+import Std.Stm (TVar)
+
+type Wallet = record
+  balance: TVar[Int where self >= 0]
+end

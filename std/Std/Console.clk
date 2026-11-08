@@ -1,0 +1,6 @@
+module Std.Console
+
+public effect Console
+  function print_line(line: String) -> Unit
+  function print_error(line: String) -> Unit
+end

@@ -1,0 +1,12 @@
+module Reject.WrongFailType
+
+-- expect: `String` has no `IntLiteral` instance
+-- line: 11
+
+import Std.Fail (Fail, fail)
+
+function parse(text: String) -> Int
+  effects { Fail[String] }
+is
+  fail(42)
+end

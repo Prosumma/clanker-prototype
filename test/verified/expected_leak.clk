@@ -1,0 +1,12 @@
+module Verified.ExpectedLeak
+
+-- A `let` annotation is expected of the whole initializer, not of each call in it (review #21).
+
+function identity[A](x: A) -> A is
+  x
+end
+
+function fine() -> Nat is
+  let n: Nat = 5 + identity(-3)
+  n
+end

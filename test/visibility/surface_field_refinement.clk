@@ -1,0 +1,9 @@
+module Visibility.SurfaceFieldRefinement
+
+-- expect: the public field `high` of `Range` mentions the private field `low`
+-- line: 8
+
+public type Range = record
+  low: Int
+  public high: Int where high >= low
+end

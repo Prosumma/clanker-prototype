@@ -1,0 +1,119 @@
+module Std.Core
+
+-- The built-in types and classes. The primitives here are part of the
+-- trusted base (DESIGN §4.2). Most of these names are in the prelude.
+
+import Std.Text (String)
+
+public primitive type Bool
+
+public primitive type Int
+
+public primitive type Unit
+
+public primitive type Never
+
+--| A non-negative integer.
+public type Nat = Int where self >= 0
+
+--| `==` and `!=`: symmetric and transitive.
+public class PartialEq[T]
+end
+
+--| `==` is also reflexive.
+public class Eq[T] extends PartialEq[T]
+end
+
+--| `<`, `<=`, `>`, `>=`; two values may be unordered.
+public class PartialOrd[T] extends PartialEq[T]
+end
+
+--| A total order.
+public class Ord[T] extends PartialOrd[T], Eq[T]
+end
+
+public class Hash[T] extends Eq[T]
+end
+
+--| `+`. Lawless (DESIGN §2.2).
+public class Add[T]
+end
+
+--| `-`.
+public class Sub[T]
+end
+
+--| `*`.
+public class Mul[T]
+end
+
+--| `/`.
+public class Div[T]
+end
+
+--| The types an integer literal can have, from context (DESIGN §1).
+public class IntLiteral[T]
+end
+
+--| The types a literal like `1.5` can have.
+public class FloatLiteral[T]
+end
+
+--| Generic arithmetic, defined for all inputs; no algebraic laws.
+public class Num[N] extends Add[N], Sub[N], Mul[N], IntLiteral[N]
+  function negate(x: N) -> N
+  function abs(x: N) -> N
+  function from_int(n: Int) -> N
+end
+
+--| How a value is written into a String by interpolation.
+public class Display[T]
+  function display(value: T) -> String
+end
+
+--| The value of `value` when the enclosing function was entered. Only
+--| meaningful in postconditions (DESIGN §4).
+public primitive function old[A](value: A) -> A
+
+--| Whether two values are the same value: structural identity, for any
+--| type. For specs, where `==` (a `PartialEq` method) isn't always identity
+--| (NaN) or available (a generic `A`). DESIGN §2.2.
+public primitive function identical[A](_ a: A, _ b: A) -> Bool
+
+--| A branch the verifier must prove can't be reached.
+public primitive function unreachable() -> Never
+  requires false
+
+primitive instance PartialEq[Bool]
+
+primitive instance Eq[Bool]
+
+primitive instance Display[Bool]
+
+primitive instance PartialEq[Unit]
+
+primitive instance Eq[Unit]
+
+primitive instance PartialEq[Int]
+
+primitive instance Eq[Int]
+
+primitive instance PartialOrd[Int]
+
+primitive instance Ord[Int]
+
+primitive instance Hash[Int]
+
+primitive instance Add[Int]
+
+primitive instance Sub[Int]
+
+primitive instance Mul[Int]
+
+primitive instance Div[Int]
+
+primitive instance IntLiteral[Int]
+
+primitive instance Num[Int]
+
+primitive instance Display[Int]

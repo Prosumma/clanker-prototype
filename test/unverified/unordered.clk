@@ -1,0 +1,9 @@
+module Unverified.Unordered
+
+-- expect: the postcondition of `smaller` holds
+-- line: 6
+function smaller[A: Ord](a: A, b: A) -> A
+  ensures result <= a
+is
+  b
+end

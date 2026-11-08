@@ -1,0 +1,11 @@
+module Reject.DiscardedResult
+
+-- expect: is discarded; write `let _ = ...`
+-- line: 9
+
+import Std.List (length)
+
+function f(xs: List[Int]) -> Unit is
+  length(xs)
+  ()
+end

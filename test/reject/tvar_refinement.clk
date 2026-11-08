@@ -1,0 +1,21 @@
+module Reject.TVarRefinement
+
+-- A `TVar[Cents]` passed as a `TVar[Int]` could be written with anything (review #2).
+-- expect: expected `TVar[Int]`, found `TVar[Cents]`
+-- line: 19
+import Std.Stm (Stm, TVar, read, write)
+
+type Cents = Int where self >= 0
+
+function smash(t: TVar[Int]) -> Unit
+  effects { Stm }
+is
+  write(t, -5)
+end
+
+function withdraw_all(balance: TVar[Cents]) -> Cents
+  effects { Stm }
+is
+  smash(balance)
+  read(balance)
+end

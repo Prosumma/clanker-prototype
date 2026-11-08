@@ -1,0 +1,23 @@
+module Geo.Shapes
+
+-- With Land.Plots, a library whose names clash: `area`, `Empty`, and
+-- `note` (DESIGN §6).
+public type Shape = variant
+  Square(side: Int)
+  Empty
+end
+
+public function area(shape: Shape) -> Int is
+  match shape
+    case Square(side) => side
+    case Empty => 0
+  end
+end
+
+public function note(text: String) -> Int is
+  0
+end
+
+public type Point = record
+  public x: Int
+end

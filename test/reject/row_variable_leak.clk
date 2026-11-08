@@ -1,0 +1,11 @@
+module Reject.RowVariableLeak
+
+-- expect: `action` performs the effects in `E`, and `twice` has no effects
+-- line: 9
+
+-- Calling `action` performs whatever `E` is, so `twice` must say so:
+-- `effects { E }`.
+function twice[E: Effects](action: () -> Unit effects { E }) -> Unit is
+  action()
+  action()
+end

@@ -1,0 +1,15 @@
+module Unverified.OtherFile
+
+import Std.Fs (Fs, read_bytes, FsError)
+import Std.Fail (Fail)
+import Std.Path (Path)
+import Std.Bytes (Bytes)
+
+-- expect: the call to `read_bytes` stays within `Fs[read: config]`
+-- line: 14
+-- The signature says this reads `config`; the body reads `secrets`.
+function load(config: Path, secrets: Path) -> Bytes
+  effects { Fs[read: config], Fail[FsError] }
+is
+  read_bytes(secrets)
+end

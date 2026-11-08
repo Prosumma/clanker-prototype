@@ -1,0 +1,43 @@
+module Verified.GenericOpResume
+
+-- A clause that passes a generic operation's value through works at every
+-- `A`, and `resume` meeting the operation's postcondition verifies
+-- (review #57, #58).
+
+effect Box
+  function wrap[A](x: A) -> A
+end
+
+function use() -> Int
+  effects { Box }
+is
+  let n: Int = wrap(3)
+  let s: String = wrap("x")
+  n
+end
+
+function unwrapped() -> Int is
+  handle use()
+    on wrap(x) =>
+      -- A local of the clause's own `A` is fine: it doesn't outlive the call.
+      let same = x
+      resume(same)
+  end
+end
+
+effect Counter
+  function next() -> Int
+    ensures result > 0
+end
+
+function take() -> Int where self > 0
+  effects { Counter }
+is
+  next()
+end
+
+function count() -> Int is
+  handle take()
+    on next() => resume(3)
+  end
+end

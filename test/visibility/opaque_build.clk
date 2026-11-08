@@ -1,0 +1,10 @@
+module Visibility.OpaqueBuild
+
+-- expect: an `Account` can't be built outside Vis.Bank: its field `cents` is private
+-- line: 9
+
+import Vis.Bank (Account)
+
+function forge() -> Account is
+  Account(id: 1, cents: 1_000_000)
+end

@@ -1,0 +1,22 @@
+module Unverified.PingPong
+
+-- Recursive calls that take turns shrinking different parameters needn't
+-- terminate: structural recursion shrinks the same one (review #48).
+-- expect: the recursive call to `ping` terminates (it doesn't shrink `xs`
+-- line: 18
+import Std.List (is_empty)
+import Std.Core (unreachable)
+
+lemma ping(xs: List[Int], ys: List[Int])
+  requires not (is_empty(xs) and is_empty(ys))
+  ensures false
+proof
+  match xs
+    case Cons(h, t) => ping(xs: t, ys: Cons(h, ys))
+    case Nil =>
+      match ys
+        case Cons(h, t) => ping(xs: Cons(h, Nil), ys: t)
+        case Nil => unreachable()
+      end
+  end
+end

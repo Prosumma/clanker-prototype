@@ -1,0 +1,22 @@
+module Unverified.AliasedTVars
+
+import Std.Stm (Stm, TVar, read, write)
+
+type Cents = Int where self >= 0
+
+-- Nothing says `from` and `to` are different TVars.
+type Transfer = record
+  from: TVar[Cents]
+  to: TVar[Cents]
+end
+
+-- expect: the postcondition of `move` holds
+-- line: 18
+function move(t: Transfer, amount: Cents) -> Unit
+  effects { Stm }
+  requires read(t.from) >= amount
+  ensures read(t.from) == old(read(t.from)) - amount
+is
+  write(t.from, read(t.from) - amount)
+  write(t.to, read(t.to) + amount)
+end

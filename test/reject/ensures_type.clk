@@ -1,0 +1,10 @@
+module Reject.EnsuresType
+
+-- expect: expected `Int`, found `String`
+-- line: 7
+
+function f(x: Int) -> Int
+  ensures result == "positive"
+is
+  x
+end

@@ -1,0 +1,10 @@
+module Visibility.OpaqueConstructorValue
+
+-- expect: an `Account` can't be built outside Vis.Bank
+-- line: 9
+
+import Vis.Bank (Account)
+
+function maker() -> (Int, Int) -> Account is
+  Account
+end

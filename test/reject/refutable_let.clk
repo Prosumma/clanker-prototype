@@ -1,0 +1,9 @@
+module Reject.RefutableLet
+
+-- expect: this pattern doesn't match every value
+-- line: 7
+
+function f(o: Option[Int]) -> Int is
+  let Some(x) = o
+  x
+end

@@ -1,0 +1,16 @@
+module Reject.LambdaEffect
+
+-- expect: `print_line` performs `Console`, but this function value may perform only `{}`
+-- line: 13
+
+import Std.Console (Console, print_line)
+import Std.List (List, map)
+
+-- `map` is as effectful as its function argument, and `doubled` is pure,
+-- so the function passed to `map` must be too.
+function doubled(xs: List[Int]) -> List[Int] is
+  map(xs, function(x) is
+    print_line("doubling")
+    x * 2
+  end)
+end
