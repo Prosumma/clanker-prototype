@@ -1,0 +1,18 @@
+module Unverified.CellRegionAlias
+
+-- expect: the postcondition of `write_c_read_m` holds
+-- line: 14
+
+import Std.State (Ref, Local, get, put)
+
+-- An alias in the region's position names the same region, so `m` is
+-- `c` (review #85).
+type Same[X] = X
+
+function write_c_read_m[R](c: Ref[R, Int], m: Ref[Same[R], Int]) -> Int
+  effects { Local[R] }
+  ensures result == old(get(m))
+is
+  put(c, 7)
+  get(m)
+end

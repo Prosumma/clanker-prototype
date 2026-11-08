@@ -30,9 +30,10 @@ is
       move(from: a, to: b)
       move(from: b, to: a)
       move(from: a, to: a)
-      -- A helper's call forgets what its postcondition doesn't say about
-      -- other cells (no frames yet, DESIGN open question 8), so `a`, not
-      -- `b`, is what's known here.
+      -- A helper's call forgets the cells of the regions in its effects,
+      -- keeping only what its postcondition says about them. `move`'s
+      -- `Local[R], Local[S]` covers both cells, so after `move(from: b,
+      -- to: a)`, `b` is unknown and `a` is what's known here.
       get(a)
     end)
   end)

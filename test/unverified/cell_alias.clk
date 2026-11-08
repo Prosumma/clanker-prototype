@@ -1,0 +1,19 @@
+module Unverified.CellAlias
+
+-- expect: the postcondition of `write_c_read_m` holds
+-- line: 15
+
+import Std.State (Ref, Local, get, put)
+
+-- A cell written through an alias is still a cell of region `R`, and so
+-- the same cell as `c`: `put(c, 7)` changes what `get(m)` reads (review
+-- #85).
+type Cell[R] = Ref[R, Int]
+
+function write_c_read_m[R](c: Ref[R, Int], m: Cell[R]) -> Int
+  effects { Local[R] }
+  ensures result == old(get(m))
+is
+  put(c, 7)
+  get(m)
+end

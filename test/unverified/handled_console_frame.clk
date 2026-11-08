@@ -1,0 +1,38 @@
+module Unverified.HandledConsoleFrame
+
+-- expect: the postcondition of `g` holds
+-- line: 20
+
+import Std.Console (Console, print_line, print_error)
+import Std.Stm (Stm, Atomic, TVar, new_tvar, read, write, atomically)
+
+-- A call to a function that only prints can still change a TVar: a
+-- handler of `Console` around it can write one in its clause while the
+-- call runs. So nothing is known about `t` after `log_it()`.
+function log_it() -> Unit
+  effects { Console }
+is
+  print_line("hi")
+end
+
+function g(t: TVar[Int]) -> Int
+  effects { Stm, Console }
+  ensures result == old(read(t))
+is
+  log_it()
+  read(t)
+end
+
+function f() -> Int
+  effects { Atomic }
+is
+  atomically(function() is
+    let t = new_tvar(0)
+    handle g(t)
+      on print_line(s) =>
+        write(t, 99)
+        resume(())
+      on print_error(s) => resume(())
+    end
+  end)
+end

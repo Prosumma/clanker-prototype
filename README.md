@@ -1,6 +1,6 @@
 # Clanker prototype
 
-A throwaway Haskell prototype for kicking the tires on the design in [`DESIGN.md`](DESIGN.md). The real compiler will be written in Rust; nothing here is meant to last. Optimize for speed of change, not polish.
+A throwaway Haskell prototype for kicking the tires on the design in [`DESIGN.md`](DESIGN.md). What's open (undecided, deferred, unbuilt, or limited) is in [`OPEN.md`](OPEN.md), which is definitive. The real compiler will be written in Rust; nothing here is meant to last. Optimize for speed of change, not polish.
 
 ## Layout
 
@@ -75,12 +75,7 @@ Out of scope: higher-kinded types, code generation, packages, the language serve
 - **Invariant types** own their TVars (DESIGN §5). Only their module builds one, and every TVar field must be a `new_tvar(...)`. Nothing takes one apart with a pattern or copies one with `with`. A TVar field is named only as what `read` or `write` acts on, and outside the module it can only be read.
 - Effects; see the next section.
 
-Not yet:
-
-- **Refinements are erased,** except inside `TVar`. `Cents` is `Int` to the checker. The verifier proves them.
-- Open structural records (`| r`) aren't supported.
-- Constraints on a type's parameters (`Wrapping[I: FixedWidth]`) aren't checked where the type is used.
-- Instance members aren't checked against their class's signatures.
+Not yet: refinements are erased in the checker, open structural records, constraints on a type's parameters at use sites, and instances checked against their class. [`OPEN.md`](OPEN.md) has them, as O-26, O-19, O-18 and O-14.
 
 ## What effect checking checks
 
@@ -95,10 +90,7 @@ Every function type carries an effect row, and a body may perform only what its 
 - **Effect parameters** must be written out (`Fs[read: any]`, not `Fs`), and each one is a literal, `any`, or the name of one of the function's parameters, of the declared type. The checker rejects `any` where only a specific value is granted, and two literals that differ. Everything else is left to the verifier.
 - **`main`** may perform only the root effects the runtime handles.
 
-Not yet:
-
-- When two function types are unified, effect parameters that name values are compared by spelling.
-- When two function types are unified, their rows unify with scoped labels, so `{ Local[Ra], Local[Rb] }` doesn't unify with `{ Local[Rb], Local[Ra] }`. Only `performs` matches `Local` by region.
+Not yet: how effect parameters that name values are compared ([`OPEN.md`](OPEN.md) O-4), and row unification for `Local` (O-28).
 
 ## What the interpreter does
 
@@ -108,12 +100,7 @@ Not yet:
 - **Literal types.** The checker records each integer literal's type, so `UInt64` and `Wrapping` arithmetic are exact, and fixed-width overflow is a runtime error, as a backstop to the verifier. A literal whose type is a generic type variable is a plain integer, promoted when it meets a float or a fixed-width value.
 - **Doc examples** (`clanker test`) become functions in a generated module that imports everything the original module sees. They're type-checked with the program, and errors point at the doc-comment line.
 
-Not yet:
-
-- **Grapheme segmentation is approximate:** combining marks, ZWJ sequences, emoji modifiers, variation selectors, and regional-indicator pairs. Full UAX #29 isn't implemented.
-- **Some primitives aren't implemented:** `decode_json` (it needs the target type at runtime), and the `Http` and `Db` effects. `10_order_sync.clk` type-checks but can't run.
-- **Instance members with bodies aren't dispatched at runtime.** Class methods work for the built-in instances, by the shape of the value.
-- **`run_concurrently`'s tasks see only the built-in effects,** which is why the checker allows them nothing else.
+Not yet: full grapheme segmentation, some primitives (`decode_json`, `Http`, `Db`), and instance dispatch. [`OPEN.md`](OPEN.md) has them, as O-24, O-23 and O-17.
 
 ## What the verifier proves
 
@@ -147,24 +134,8 @@ With effects (step 5):
 - **TVar state** is an array per element type, threaded through the body. `read` selects, and the value has the TVar's refinement. `write` stores, and owes the value the refinement. A call that might run transactional code (an `Stm` function, a row variable, a function value, another effect's operation) replaces the arrays with unknown ones, and its postcondition says what's known afterwards. Both branches of an `if`, `match`, `and`, or `or` start from the same state, and merge. `old(...)` reads the state on entry. TVars created by `new_tvar` are distinct.
 - **Invariants** (with ownership, DESIGN §5): a new value must satisfy its invariant. Code that writes a value's TVars must re-establish its invariant before it returns or commits, and before anything that might not return here (an operation other than `Stm`'s, or a call that may perform one). A write is attributed to the value it names (`write(x.f, ...)`), from the syntax. An `Stm` function's result of an invariant type must satisfy the invariant. Values it didn't write keep theirs, so an `Stm` function may assume its parameters', a transaction those of the values in scope, and anything may re-assume untouched values' invariants after a call. A call to an `Stm` function owes the invariant of any argument that might have been written. A transaction is any function value that may perform `Stm` where nothing around it may. Other function values, and handler clauses, run at an unknown point, so they assume nothing.
 - **Other modules' definitions.** A function or constant from another module is known by its contract or declared type, and by its definition only if it's public and the definition names only public things (DESIGN §4). Those are recorded by the checker.
-- **Local state** (`with_state`, DESIGN §3). A cell is a TVar to the verifier: `get` and `put` are `read` and `write` on the same heap, and a new cell is distinct from the others made in the function. The body, a lambda at the call, is verified in place. A call that might use cells (one whose effects include `Local`, or a row variable) replaces the heap, like an `Stm` call.
+- **Local state** (`with_state`, DESIGN §3). A cell is a TVar to the verifier: `get` and `put` are `read` and `write` on the same heap, and a new cell is distinct from the others made in the function. The body, a lambda at the call, is verified in place. A call whose effects are only `Local[...]`, with each region's cell known, forgets only those cells: frames for cells. Any other effectful call, one that performs anything but `Stm` included, forgets every TVar and cell.
 - **Handler clauses.** Each operation clause is verified, assuming the operation's parameter refinements and precondition. `resume`'s argument must satisfy the operation's result type and postcondition (with `old(...)` the state at the operation). A handler can make a computation that doesn't return (`fail`) return, so code after a `handle` is live.
 
-Not yet:
-
-- **No frame conditions.** After an `Stm` call, a caller knows only what the callee's postcondition says about TVars (DESIGN open question 8). Inside an invariant type's module, a function holding two values that calls a helper on one must still re-establish the other's invariant if it wrote it.
-- **A new TVar or cell is known to be distinct** from the others made in the function and from those in scope (parameters and locals), but not from ones reachable only through a value's fields.
-- **A call that might use cells forgets all of them,** and all TVars, apart from what its postcondition says. A region has one cell, so `Local[R]` could serve as a frame (DESIGN open question 8).
-- **A cell's contents aren't refined.** As everywhere outside `TVar`, `Cents` is `Int` inside a `Ref`, so `get` gives a plain `Int`, and a refinement is owed only where the value reaches a declared type.
-- **State through an effect-polymorphic callback is lost.** After `for_each(xs, action: function(x) => put(sum, get(sum) + x))`, nothing is known about `sum`, as after any call that might touch state. Folds keep what's known.
-- **Refinements inside a parameter's type arguments aren't assumed:** `amounts: List[Cents]` doesn't make the elements `Cents`. (So they aren't owed either, and nothing relies on them.)
-- **A `handle` expression's value is unknown**, even for `handle 5 on ...`.
-- **Structural termination** is for a function calling only itself, on one parameter; mutual recursion, and recursion that shrinks different parameters by turns (`merge`), need measures.
-- **Class method signatures' refinements** aren't checked for well-formedness.
-- **Class methods can't have `requires` or `ensures` yet.** Every call would assume them, and instances aren't checked against them. Recursion through a class method (a generic function calling a method whose instance calls it back) is rejected, since its termination isn't checked.
-- Instance members are verified but not yet checked against their class's signatures or dispatched at runtime. When they are, members must be matched to methods by the method's declared name: a member named after a renamed method's local name (`g_size` for `size as g_size`) is accepted today, and the dispatch-cycle check doesn't see it.
-- **Floats and strings are uninterpreted.** Facts about them come only from specs.
-- **Class laws** aren't checked, and aren't used except for one: a type variable's `<=` is assumed total under `Ord`. For a hand-written `Ord` instance, that rests on a law nothing proves, so it belongs in the trust ledger. (It can't go wrong at runtime yet, since instance members aren't dispatched.)
-- **`atomically`** is trusted to return its transaction's result, so a refinement passes through it (`let r: Cents = atomically(function() => read(b))`).
-- **Doc examples aren't verified,** only run (`clanker test`).
+Not yet, all in [`OPEN.md`](OPEN.md): frame conditions for TVars (O-9), instances checked against their class (O-14), verified doc examples (O-25), `assume` and `axiom` (O-38), `unsafe` and FFI (O-39), class laws as proof obligations (O-40), and the limitations O-27, O-29 to O-33, and O-37. The two trusted assumptions are `Ord` totality (O-34) and `atomically`'s result (O-35).
 

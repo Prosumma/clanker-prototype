@@ -1,0 +1,24 @@
+module Unverified.CellFrameConsole
+
+-- expect: the postcondition of `do_both` holds
+-- line: 20
+
+import Std.Console (Console, print_line)
+import Std.State (Ref, Local, with_state, get, put)
+
+-- A helper that also prints gets no frame: a handler of `Console` around
+-- the call could write `other` while it runs.
+function shout[R](c: Ref[R, Int]) -> Unit
+  effects { Local[R], Console }
+is
+  put(c, 1)
+  print_line("hi")
+end
+
+function do_both[R, S](c: Ref[R, Int], other: Ref[S, Int]) -> Int
+  effects { Local[R], Local[S], Console }
+  ensures result == old(get(other))
+is
+  shout(c)
+  get(other)
+end

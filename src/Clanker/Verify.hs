@@ -73,7 +73,7 @@ import Data.List (nub, sortOn)
 import Data.Ord (Down (..))
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as M
-import Data.Maybe (catMaybes, fromMaybe, isJust, listToMaybe)
+import Data.Maybe (catMaybes, fromMaybe, isJust, isNothing, listToMaybe)
 import Data.Set (Set)
 import Data.Set qualified as S
 import Data.Text (Text)
@@ -109,11 +109,13 @@ data FnInfo = FnInfo
 
 -- | What a function's declared effects say about TVar state.
 data StateAccess
-  = -- | No @Stm@, no row variable: it can't touch TVars.
+  = -- | No effects (or only @Stm@'s own operations, modelled directly):
+    -- it can't touch TVars or cells.
     NoState
   | -- | @Stm@ itself: invariants apply.
     StmFunction
-  | -- | A row variable, which might stand for @Stm@.
+  | -- | Anything else: @Local@, a row variable, or an effect whose
+    -- operations a handler might take, writing state while the call runs.
     MaybeState
   deriving stock (Eq)
 
@@ -145,6 +147,9 @@ data VProgram = VProgram
   , vpInstantiations :: Map (FilePath, Span) (Map Name Ty)
   , vpInstantiationTags :: Map (FilePath, Span) (Map Name Entity)
   , vpConvert :: QName -> Set Name -> Type -> Maybe Ty
+  , -- | The same, but keeping cells as cells (@Ref[R, A]@), for telling
+    -- them from TVars by their checked type, aliases expanded.
+    vpConvertCells :: QName -> Set Name -> Type -> Maybe Ty
   , vpPaths :: Map QName FilePath
   , vpModules :: Map QName Module
   , vpEffects :: Map Entity EffectInfo
@@ -176,6 +181,7 @@ mkVProgram loaded analysis =
     , vpInstantiations = M.map (M.map erasedRefs) (analysisInstantiations analysis)
     , vpInstantiationTags = analysisInstantiationTags analysis
     , vpConvert = \q vars t -> erasedRefs <$> analysisConvert analysis q vars t
+    , vpConvertCells = analysisConvert analysis
     , vpPaths = M.fromList [(moduleName (loadedModule l), loadedPath l) | l <- loaded]
     , vpModules = M.fromList [(moduleName (loadedModule l), loadedModule l) | l <- loaded]
     , vpEffects =
@@ -374,6 +380,10 @@ data VState = VState
   , -- | The function's structurally recursive calls: where, which
     -- parameters each one shrinks, and the facts there.
     vsRecursiveCalls :: [(Span, Set Int, [Term])]
+  , -- | Each known region's one cell (DESIGN §3), with its contents' type:
+    -- the cell a `with_state` made here, or a parameter of type
+    -- `Ref[R, A]` for the function's own region `R`.
+    vsRegions :: Map Name [(Ty, Term)]
   }
 
 type VM = ReaderT VEnv (StateT VState (ExceptT Text IO))
@@ -1468,6 +1478,9 @@ functionCall sp e fi args
       ety <- typeAt (location initial)
       cell <- freshConst n (TyCon tvarE [ety])
       allocated ety cell
+      instantiationAt sp ["R"] >>= \case
+        [TyVar region] -> modify' (\st -> st {vsRegions = M.insert region [(ety, cell)] (vsRegions st)})
+        _ -> pure ()
       h <- heapFor ety
       setHeap ety (App "store" [h, cell, v0])
       let grant env = env {veEffects = Granted localE M.empty "Local" : veEffects env}
@@ -1609,7 +1622,13 @@ functionCall sp e fi args
               pure tv
           | fnKind fi == KLemma -> unitTerm
           | fnEffectful fi -> do
-              when (touches /= NoState) havocHeap
+              when (touches /= NoState) $
+                cellFrame fi tys >>= \case
+                  Just cells -> forM_ cells $ \(ety, cell) -> do
+                    v <- freshConst "cell" ety
+                    h <- heapFor ety
+                    setHeap ety (App "store" [h, cell, v])
+                  Nothing -> havocHeap
               freshConst (name <> " result") resultTy
           | otherwise -> do
               argTys <- forM params $ \(Param _ _ pty) -> inCallee fi tys [] (convertIn (fnModule fi) pty)
@@ -2052,6 +2071,39 @@ lexLess _ _ = tFalse
 
 -- Effects and TVar state ---------------------------------------------------------
 
+-- | Frames for cells (DESIGN §3): a call that touches state only through
+-- `Local[...]` can change only the cells of those regions, since a region
+-- has one cell. So if its effects are named effects other than `Stm`, with
+-- no row variable, and each `Local`'s region is one whose cell is known
+-- here, those cells are all it can change: TVars and other cells keep what
+-- was known. Otherwise, 'Nothing', and the call forgets everything. Its
+-- effects must be `Local` alone: any other effect's operations could be
+-- taken by a handler that writes anything while the call runs.
+cellFrame :: FnInfo -> [Ty] -> VM (Maybe [(Ty, Term)])
+cellFrame fi tys = do
+  scopes <- asks (vpTypeScopes . veProg)
+  regions <- gets vsRegions
+  let f = fnSyntax fi
+      resolve n = M.lookup (fnModule fi) scopes >>= M.lookup n
+      rows = [r | Clause _ (Effects r) <- fnClauses f]
+      labels = [(resolve n, args) | EffectRow es _ <- rows, Effect n args <- es]
+      closed = and [isNothing rest | EffectRow _ rest <- rows]
+      -- Only `Local`: any other effect's operations could be taken by a
+      -- handler that writes anything.
+      onlyLocal = all ((== Just localE) . fst) labels
+      inst = M.fromList (zip (functionVars fi) tys)
+      regionOf = \case
+        [EffectTypeArg (TName r [])] -> case M.lookup r inst of
+          Just (TyVar region) -> M.lookup region regions
+          _ -> Nothing
+        _ -> Nothing
+      cells = [regionOf args | (Just e, args) <- labels, e == localE]
+  -- An operation's handler might do anything, so it gets no frame.
+  pure $
+    if fnKind fi /= KOperation && closed && onlyLocal && all isJust cells
+      then Just (nub (concat (catMaybes cells)))
+      else Nothing
+
 -- | A new TVar or cell is none that existed before: not one made earlier
 -- here, and not one in scope, as a parameter or a local (review #81).
 allocated :: Ty -> Term -> VM ()
@@ -2152,8 +2204,10 @@ stateAccessOf q f = do
   pure $
     if
       | any ((== Just stmE) . resolve) names -> StmFunction
-      -- It can read and write cells, which share the heap.
-      | rowVariable || any ((== Just localE) . resolve) names -> MaybeState
+      -- Any other effect can change state: `Local` reads and writes
+      -- cells, and an operation of any other effect may be taken by a
+      -- handler whose clause writes TVars or cells while the call runs.
+      | rowVariable || not (null names) -> MaybeState
       | otherwise -> NoState
 
 freshHeap :: Ty -> VM Term
@@ -2374,7 +2428,7 @@ verifyWith prog q e tyVars ordVars group name action = do
           , veCheckedFnArg = False
           , veOrdVars = S.fromList ordVars
           }
-      st0 = VState 0 [] [] S.empty M.empty [] M.empty M.empty M.empty M.empty M.empty [] M.empty [] M.empty M.empty M.empty [] [] []
+      st0 = VState 0 [] [] S.empty M.empty [] M.empty M.empty M.empty M.empty M.empty [] M.empty [] M.empty M.empty M.empty [] [] [] M.empty
   result <- runExceptT (runStateT (runReaderT action env) st0)
   pure $ case result of
     Left why -> FunctionReport name [] (Just why) []
@@ -2397,6 +2451,25 @@ collectAndDischarge f = do
     v <- sourceConst n ty
     pure (n, t, v, ty)
   let locals = [(n, Local v Nothing (Just (q, t)) (Just ty)) | (n, t, v, ty) <- params]
+  -- A parameter `cell: Ref[R, A]` is region `R`'s one cell.
+  -- Two parameters of one region are the same cell. And a cell is never
+  -- a TVar, though to the solver both are TVars. Both are told from the
+  -- checked type, aliases expanded (`Cell[R]`, `Ref[Same[R], Int]`), not
+  -- from how the type is written (review #85).
+  convertCells <- asks (vpConvertCells . veProg)
+  vars <- asks veTyVars
+  let kind t = case convertCells q vars t of
+        Just (TyCon e [TyVar region, _]) | e == refE -> Just (Left region)
+        Just (TyCon e [_]) | e == tvarE -> Just (Right ())
+        _ -> Nothing
+      kinds = [(kind t, v, ty) | (_, t, v, ty) <- params]
+  forM_ kinds $ \case
+    (Just (Left region), v, ty@(TyCon _ [ety])) -> do
+      known <- gets (M.findWithDefault [] region . vsRegions)
+      mapM_ (\(_, other) -> assume (tEq v other)) [c | c@(ety', _) <- known, ety' == ety]
+      modify' (\st -> st {vsRegions = M.insertWith (<>) region [(ety, v)] (vsRegions st)})
+      forM_ [w | (Just (Right ()), w, ty') <- kinds, ty' == ty] $ \w -> assume (tNot (tEq v w))
+    _ -> pure ()
   granted <- withLocals locals $ concat <$> traverse (\row -> grantedRow q row []) [row | Clause _ (Effects row) <- fnClauses f]
   touches <- stateAccessOf q f
   local (\env -> env {veEffects = granted, veOld = initial, veParamTerms = [v | (_, _, v, _) <- params]}) . withLocals locals $ do

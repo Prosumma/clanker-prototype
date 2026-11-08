@@ -1,0 +1,49 @@
+module Verified.CellFrames
+
+import Std.State (Ref, Local, with_state, get, put)
+import Std.Stm (Stm, TVar, read)
+
+-- Frames for cells (DESIGN §3): a region has one cell, so a call whose
+-- only effects are `Local[...]` can change only the cells of those
+-- regions. Everything else keeps what was known.
+function bump[R](cell: Ref[R, Int]) -> Unit
+  effects { Local[R] }
+  ensures get(cell) == old(get(cell)) + 1
+is
+  put(cell, get(cell) + 1)
+end
+
+-- The outer cell survives a helper on the inner one.
+function outer_kept() -> Int
+  ensures result == 5
+is
+  with_state(initial: 5, body: function(a) is
+    with_state(initial: 10, body: function(b) is
+      bump(b)
+      get(a)
+    end)
+  end)
+end
+
+-- Inside a helper, its own region's cell is framed too: the cell made
+-- here survives a call on the parameter.
+function bump_twice[R](cell: Ref[R, Int]) -> Int
+  effects { Local[R] }
+  ensures get(cell) == old(get(cell)) + 2
+  ensures result == 7
+is
+  bump(cell)
+  with_state(initial: 7, body: function(mine) is
+    bump(cell)
+    get(mine)
+  end)
+end
+
+-- A TVar survives a call that touches only cells.
+function tvar_kept[R](t: TVar[Int], cell: Ref[R, Int]) -> Int
+  effects { Stm, Local[R] }
+  ensures result == old(read(t))
+is
+  bump(cell)
+  read(t)
+end

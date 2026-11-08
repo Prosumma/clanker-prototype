@@ -55,3 +55,4 @@ test/visibility/renamed_imports.clk verify 18
 std/Std/State.clk verify 0
 test/verified/local_state.clk verify 26
 test/verified/local_state_nesting.clk verify 28
+test/verified/cell_frames.clk verify 19
