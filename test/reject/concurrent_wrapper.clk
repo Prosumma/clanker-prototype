@@ -1,0 +1,15 @@
+module Reject.ConcurrentWrapper
+
+-- expect: declare `E: RootEffects`
+-- line: 14
+
+import Std.Concurrent (Spawn, run_concurrently)
+import Std.List (List)
+
+-- A wrapper passing its own row to `run_concurrently` must say it holds
+-- only the runtime's effects (review #77).
+function par[E: Effects](tasks: List[() -> Unit effects { E }]) -> Unit
+  effects { Spawn | E }
+is
+  run_concurrently(tasks)
+end

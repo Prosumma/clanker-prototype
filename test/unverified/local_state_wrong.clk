@@ -1,0 +1,15 @@
+module Unverified.LocalStateWrong
+
+-- expect: the postcondition of `wrong` holds
+-- line: 9
+
+import Std.State (with_state, get, put)
+
+function wrong() -> Int
+  ensures result == 3
+is
+  with_state(initial: 0, body: function(c) is
+    put(c, 1)
+    get(c)
+  end)
+end

@@ -79,6 +79,8 @@ data Value
     VData Entity [(Name, Value)]
   | VFun Text ([Value] -> Eval Value)
   | VTVar Int (IORef Value)
+  | -- | A cell of local state (DESIGN §3), made by @with_state@.
+    VRef Int (IORef Value)
   | -- | Elements in sorted order.
     VMultiset [Value]
   | -- | A template string (like @Sql@): literal text and interpolated values.
@@ -680,6 +682,7 @@ renderValue prog = \case
     | otherwise -> entityName e <> "(" <> T.intercalate ", " [n <> ": " <> renderValue prog fv | (n, fv) <- fields] <> ")"
   VFun name _ -> "<function " <> name <> ">"
   VTVar n _ -> "<TVar " <> tshow n <> ">"
+  VRef n _ -> "<Ref " <> tshow n <> ">"
   VMultiset vs -> "multiset([" <> commas vs <> "])"
   VTemplate pieces -> T.concat [either id (\x -> "${" <> renderValue prog x <> "}") p | p <- pieces]
   where
@@ -745,6 +748,7 @@ primitive rt e args = case (entityModule e, entityName e, args) of
       Right bs -> pure (VBytes bs)
       Left (_ :: SomeException) -> perform failE [VData (Entity ["Std", "Fs"] "NotFound") []]
   (["Std", "Stm"], "atomically", [transaction]) -> runtimeAtomically rt transaction
+  (["Std", "State"], "with_state", [initial, body]) -> withState rt initial body
   (["Std", "Concurrent"], "run_concurrently", [tasks]) -> runtimeConcurrently rt tasks
   _ -> throwEval ("the primitive " <> quote (entityName e) <> " isn't implemented in the interpreter")
   where
@@ -786,6 +790,24 @@ graphemes = map T.pack . go . T.unpack
         || (c >= '\xFE00' && c <= '\xFE0F')
         || (c >= '\x1F3FB' && c <= '\x1F3FF')
     isRegional c = c >= '\x1F1E6' && c <= '\x1F1FF'
+
+-- Local state -------------------------------------------------------------------
+
+-- | Run the body with a new cell, handling @Local@'s operations. An
+-- operation names its cell, so this handler serves an enclosing
+-- @with_state@'s cells as well as its own.
+withState :: Runtime -> Value -> Value -> Eval Value
+withState rt initial body = do
+  n <- liftIO' (atomicModifyIORef' (rtNextTVar rt) (\i -> (i + 1, i)))
+  cell <- liftIO' (newIORef initial)
+  handleWith (M.fromList [(localGetE, getCell), (localPutE, putCell)]) pure (apply body [VRef n cell])
+  where
+    getCell args resume = case args of
+      [VRef _ ref] -> liftIO' (readIORef ref) >>= resume
+      _ -> throwEval "`get` was given something that isn't a cell"
+    putCell args resume = case args of
+      [VRef _ ref, v] -> liftIO' (writeIORef ref v) >> resume VUnit
+      _ -> throwEval "`put` was given something that isn't a cell"
 
 -- STM and concurrency ------------------------------------------------------------
 

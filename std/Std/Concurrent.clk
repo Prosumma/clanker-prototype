@@ -5,7 +5,7 @@ end
 
 --| Runs the tasks concurrently and waits for all of them (structured
 --| concurrency: none outlives the call).
-public primitive function run_concurrently[E: Effects](
+public primitive function run_concurrently[E: RootEffects](
   tasks: List[() -> Unit effects { E }],
 ) -> Unit
   effects { Spawn | E }

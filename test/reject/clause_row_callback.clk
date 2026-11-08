@@ -1,0 +1,28 @@
+module Reject.ClauseRowCallback
+
+-- expect: `task` performs `E`, the row of effects of the operation this clause handles
+-- line: 19
+
+import Std.Console (Console, print_line)
+
+-- A generic operation's row variable is rigid in its clause, like its
+-- type variables: the callback performs whatever each call of `go`
+-- allows, so running it here would let a pure function print (review
+-- #84).
+effect Go
+  function go[E: Effects](task: () -> Unit effects { E }) -> Unit
+end
+
+function runner(action: () -> Unit effects { Go }) -> Unit is
+  handle action()
+    on go(task) =>
+      task()
+      resume(())
+  end
+end
+
+function main() -> Unit
+  effects { Console }
+is
+  runner(function() => go(function() => print_line("printed by a pure function")))
+end

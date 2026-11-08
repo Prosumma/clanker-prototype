@@ -1,0 +1,14 @@
+module Reject.RefinedCell
+
+-- expect: a cell's contents can't be `Nat`, a refined type
+-- line: 10
+
+import Std.State (Ref, Local, with_state, get, put)
+
+-- A refinement can't be stated where a cell is made, so a helper's
+-- signature can't claim one (review #82).
+function take[R](c: Ref[R, Nat]) -> Int
+  effects { Local[R] }
+is
+  get(c)
+end

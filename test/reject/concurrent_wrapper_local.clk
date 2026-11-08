@@ -1,0 +1,24 @@
+module Reject.ConcurrentWrapperLocal
+
+-- expect: a task here would perform `Local`
+-- line: 21
+
+import Std.State (Ref, Local, with_state, get, put)
+import Std.Concurrent (Spawn, run_concurrently)
+import Std.List (List)
+
+-- Through a wrapper, a task still can't use a cell (review #77).
+function par[E: RootEffects](tasks: List[() -> Unit effects { E }]) -> Unit
+  effects { Spawn | E }
+is
+  run_concurrently(tasks)
+end
+
+function f() -> Int
+  effects { Spawn }
+is
+  with_state(initial: 0, body: function(c) is
+    par([function() => put(c, get(c) + 1)])
+    get(c)
+  end)
+end

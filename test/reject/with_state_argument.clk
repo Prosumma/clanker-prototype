@@ -1,0 +1,13 @@
+module Reject.WithStateArgument
+
+-- expect: `with_state` can only be called directly
+-- line: 11
+
+import Std.State (Ref, Local, with_state, get, put)
+import Std.Option (Option, Some)
+
+-- Passing it along is using it as a value too (review #76).
+function f() -> Option[Int] is
+  let held = Some(with_state)
+  None
+end

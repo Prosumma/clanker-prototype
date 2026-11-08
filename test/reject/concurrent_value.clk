@@ -1,0 +1,15 @@
+module Reject.ConcurrentValue
+
+-- expect: `run_concurrently` can only be called directly
+-- line: 13
+
+import Std.State (Ref, Local, with_state, get, put)
+import Std.Concurrent (Spawn, run_concurrently)
+
+-- Its tasks' effects are checked at each call (review #77).
+function f() -> Unit
+  effects { Spawn }
+is
+  let run = run_concurrently
+  ()
+end

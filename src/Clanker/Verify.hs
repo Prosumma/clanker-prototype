@@ -172,10 +172,10 @@ mkVProgram loaded analysis =
     , vpConstants = M.fromList [(Entity q (constantName c), (q, c)) | (q, ConstantDecl c) <- decls]
     , vpValueScopes = analysisScopes analysis
     , vpTypeScopes = analysisTypeScopes analysis
-    , vpExprTypes = analysisTypes analysis
-    , vpInstantiations = analysisInstantiations analysis
+    , vpExprTypes = M.map erasedRefs (analysisTypes analysis)
+    , vpInstantiations = M.map (M.map erasedRefs) (analysisInstantiations analysis)
     , vpInstantiationTags = analysisInstantiationTags analysis
-    , vpConvert = analysisConvert analysis
+    , vpConvert = \q vars t -> erasedRefs <$> analysisConvert analysis q vars t
     , vpPaths = M.fromList [(moduleName (loadedModule l), loadedPath l) | l <- loaded]
     , vpModules = M.fromList [(moduleName (loadedModule l), loadedModule l) | l <- loaded]
     , vpEffects =
@@ -184,8 +184,8 @@ mkVProgram loaded analysis =
           | (q, EffectDecl (EffectDef n ps _)) <- decls
           ]
     , vpInvariants = [(q, i) | (q, InvariantDecl i) <- decls]
-    , vpTVarTypes = S.toList (S.fromList [t | ty <- M.elems (analysisTypes analysis), t <- tvarElements ty, ground t])
-    , vpHandlers = analysisHandlers analysis
+    , vpTVarTypes = S.toList (S.fromList [t | ty <- M.elems (analysisTypes analysis), t <- tvarElements (erasedRefs ty), ground t])
+    , vpHandlers = M.map (\(ps, r) -> (map erasedRefs ps, erasedRefs r)) (analysisHandlers analysis)
     , vpProducing = producingClasses (analysisTypeScopes analysis) decls
     , vpTransparent = analysisTransparent analysis
     , vpHandwritten =
@@ -245,7 +245,7 @@ hasEffects :: Function -> Bool
 hasEffects f = or [not (null es) || isJust r | Clause _ (Effects (EffectRow es r)) <- fnClauses f]
 
 typeVars :: [TypeParam] -> [Name]
-typeVars ps = [n | TypeParam n cs <- ps, "Effects" `notElem` cs, maybe False (isAsciiUpper . fst) (T.uncons n)]
+typeVars ps = [n | TypeParam n cs <- ps, not (any (`elem` cs) ["Effects", "RootEffects"]), maybe False (isAsciiUpper . fst) (T.uncons n)]
 
 functionVars :: FnInfo -> [Name]
 functionVars fi = fnOuterVars fi <> typeVars (fnTypeParams (fnSyntax fi))
@@ -1460,6 +1460,22 @@ functionCall sp e fi args
       (x, rx) <- symExpr a
       (y, ry) <- symExpr b
       pure (tEq x y, tAnd [rx, ry])
+  -- A new cell, distinct from every other made here, holding `initial`;
+  -- then the body, run here once with its parameter bound to the cell.
+  -- The checker made sure the body is a lambda and the cell can't escape.
+  | e == withStateE, [initial, At _ (ELambda [LambdaParam n _] body)] <- args = do
+      (v0, r0) <- symExpr initial
+      ety <- typeAt (location initial)
+      cell <- freshConst n (TyCon tvarE [ety])
+      allocated ety cell
+      h <- heapFor ety
+      setHeap ety (App "store" [h, cell, v0])
+      let grant env = env {veEffects = Granted localE M.empty "Local" : veEffects env}
+      (v, r) <-
+        guarded r0 . local grant . withLocals [(n, Local cell Nothing Nothing (Just (TyCon tvarE [ety])))] $ case body of
+          ExprBody b -> symExpr b
+          BlockBody b -> symBlock b
+      pure (v, tAnd [r0, tImplies r0 r])
   | e == Entity ["Std", "Core"] "unreachable" = do
       oblige sp "this is unreachable (`unreachable()` requires `false`)" tFalse
       ty <- typeAt sp
@@ -1491,7 +1507,7 @@ functionCall sp e fi args
       -- come in some other way (in a `List[A]`, as a callback's argument,
       -- as a resumed operation's result) can't be checked.
       tags <-
-        if e `elem` [stmRead, stmWrite, stmNewTVar]
+        if e `elem` [stmRead, stmWrite, stmNewTVar, localGetE, localPutE]
           then pure M.empty
           else instantiationTagsAt sp vars
       let tagPreds = fmap snd tags
@@ -1571,13 +1587,13 @@ functionCall sp e fi args
           obligeInvariants sp (\inv -> "the invariant " <> quote inv <> " holds when " <> quote name <> " is called") v ty
       result <-
         if
-          | e == stmRead, [tv] <- argTerms, [a0] <- args -> do
+          | e `elem` [stmRead, localGetE], [tv] <- argTerms, [a0] <- args -> do
               ety <- contentsOf a0
               h <- heapFor ety
               let v = App "select" [h, tv]
               contentsPred ety >>= mapM_ (\p -> p v >>= assume)
               pure v
-          | e == stmWrite, [tv, v] <- argTerms, [a0, a1] <- args -> do
+          | e `elem` [stmWrite, localPutE], [tv, v] <- argTerms, [a0, a1] <- args -> do
               ety <- contentsOf a0
               contentsPred ety >>= mapM_ (\p -> p v >>= oblige (location a1) ("the value written satisfies " <> quote (showTy ety)))
               touchOwner (location a0) a0
@@ -1587,9 +1603,7 @@ functionCall sp e fi args
           | e == stmNewTVar, [v] <- argTerms, [a0] <- args, TyCon _ [ety] <- resultTy -> do
               contentsPred ety >>= mapM_ (\p -> p v >>= oblige (location a0) ("the initial value satisfies " <> quote (showTy ety)))
               tv <- freshConst "tvar" resultTy
-              others <- gets (\s -> [t | (ty, t) <- vsAllocated s, ty == ety])
-              mapM_ (\o -> assume (tNot (tEq tv o))) others
-              modify' (\s -> s {vsAllocated = (ety, tv) : vsAllocated s})
+              allocated ety tv
               h <- heapFor ety
               setHeap ety (App "store" [h, tv, v])
               pure tv
@@ -1862,18 +1876,18 @@ abnormalExit sp what = do
 -- | Whether a call might not return here ('abnormalExit').
 mayEscape :: FnInfo -> VM Bool
 mayEscape fi = case fnKind fi of
-  KOperation -> pure (fnEffect fi /= Just stmE)
+  KOperation -> pure (fnEffect fi `notElem` [Just stmE, Just localE])
   _
     | not (fnEffectful fi) -> pure False
     | otherwise -> do
         scopes <- asks (vpTypeScopes . veProg)
         let rows = [r | Clause _ (Effects r) <- fnClauses (fnSyntax fi)]
             resolve n = M.lookup (fnModule fi) scopes >>= M.lookup n
-        pure (or [isJust rest | EffectRow _ rest <- rows] || or [resolve n /= Just stmE | EffectRow es _ <- rows, Effect n _ <- es])
+        pure (or [isJust rest | EffectRow _ rest <- rows] || or [resolve n `notElem` [Just stmE, Just localE] | EffectRow es _ <- rows, Effect n _ <- es])
 
 rowEscapes :: Ty -> Bool
 rowEscapes = \case
-  TyFun _ _ (Row ls tl) -> tl /= Closed || any ((/= stmE) . effEntity) ls
+  TyFun _ _ (Row ls tl) -> tl /= Closed || any ((`notElem` [stmE, localE]) . effEntity) ls
   _ -> True
 
 -- | Owe the invariants of a value. Only a value whose TVars were written
@@ -2038,6 +2052,28 @@ lexLess _ _ = tFalse
 
 -- Effects and TVar state ---------------------------------------------------------
 
+-- | A new TVar or cell is none that existed before: not one made earlier
+-- here, and not one in scope, as a parameter or a local (review #81).
+allocated :: Ty -> Term -> VM ()
+allocated ety new = do
+  made <- gets (\st -> [t | (ty, t) <- vsAllocated st, ty == ety])
+  inScope <- asks (\env -> [localTerm l | l <- M.elems (veLocals env), localTy l == Just (TyCon tvarE [ety])])
+  mapM_ (\o -> assume (tNot (tEq new o))) (nub (made <> inScope))
+  modify' (\st -> st {vsAllocated = (ety, new) : vsAllocated st})
+
+-- | To the verifier a cell of local state (DESIGN §3) is a TVar: it lives
+-- in the same heap, and @get@ and @put@ are @read@ and @write@. Its
+-- region only matters to the checker, which keeps cells from escaping.
+erasedRefs :: Ty -> Ty
+erasedRefs = \case
+  TyCon e [_, a] | e == refE -> TyCon tvarE [erasedRefs a]
+  TyCon e ts -> TyCon e (map erasedRefs ts)
+  TyFun ps r (Row ls tl) -> TyFun (map erasedRefs ps) (erasedRefs r) (Row [i {effTypes = map erasedRefs (effTypes i)} | i <- ls] tl)
+  TyTuple ts -> TyTuple (map erasedRefs ts)
+  TyRecord fs -> TyRecord (M.map erasedRefs fs)
+  TyRefined a t -> TyRefined a (erasedRefs t)
+  t -> t
+
 stmRead, stmWrite, stmNewTVar :: Entity
 stmRead = Entity ["Std", "Stm"] "read"
 stmWrite = Entity ["Std", "Stm"] "write"
@@ -2101,7 +2137,7 @@ operationParameters fi = case fnEffect fi of
 stateAccess :: FnInfo -> VM StateAccess
 stateAccess fi = case fnKind fi of
   KOperation
-    | fnEffect fi == Just stmE -> pure NoState
+    | fnEffect fi `elem` [Just stmE, Just localE] -> pure NoState
     | otherwise -> pure MaybeState
   _ -> stateAccessOf (fnModule fi) (fnSyntax fi)
 
@@ -2116,7 +2152,8 @@ stateAccessOf q f = do
   pure $
     if
       | any ((== Just stmE) . resolve) names -> StmFunction
-      | rowVariable -> MaybeState
+      -- It can read and write cells, which share the heap.
+      | rowVariable || any ((== Just localE) . resolve) names -> MaybeState
       | otherwise -> NoState
 
 freshHeap :: Ty -> VM Term

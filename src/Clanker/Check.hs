@@ -470,11 +470,16 @@ typeEnvOf modules owns scopes =
 -- effect-row variable, and lower-case names in an effect's parameters are
 -- value parameters (@Http[host: String]@); neither is a type.
 typeVarsOf :: [TypeParam] -> [Name]
-typeVarsOf ps = [n | TypeParam n cs <- ps, "Effects" `notElem` cs, isUpperName n]
+typeVarsOf ps = [n | TypeParam n cs <- ps, not (any (`elem` cs) ["Effects", "RootEffects"]), isUpperName n]
 
 -- | The effect-row variables a parameter list introduces.
 rowVarsOf :: [TypeParam] -> [Name]
-rowVarsOf ps = [n | TypeParam n cs <- ps, "Effects" `elem` cs]
+rowVarsOf ps = [n | TypeParam n cs <- ps, any (`elem` cs) ["Effects", "RootEffects"]]
+
+-- | Row variables declared @E: RootEffects@: only the effects the runtime
+-- handles in every thread (DESIGN §3).
+rootRowVarsOf :: [TypeParam] -> [Name]
+rootRowVarsOf ps = [n | TypeParam n cs <- ps, "RootEffects" `elem` cs]
 
 effectSig :: QName -> [TypeParam] -> EffectSig
 effectSig q ps = EffectSig q (typeVarsOf ps) [(n, TName t []) | TypeParam n [t] <- ps, not (isUpperName n)]
@@ -510,7 +515,7 @@ convType tenv = go (0 :: Int)
             if null args then pure (TyVar n, []) else Left ("the type variable " <> quote n <> " doesn't take arguments")
         | otherwise -> do
             e <- lookupTypeName tenv m n
-            converted <- traverse (if e == tvarE then tvarContents depth m scope else go depth m scope) args
+            converted <- sequence (zipWith (contents depth m scope e) [0 :: Int ..] args)
             let (args', refinements) = (map fst converted, concatMap snd converted)
             case M.lookup e (teAliases tenv) of
               Just (am, ps, body)
@@ -547,6 +552,23 @@ convType tenv = go (0 :: Int)
         pure (t', rs <> [(e, t')])
     arityError n k = Left (quote n <> " takes " <> tshow k <> " type argument" <> (if k == 1 then "" else "s"))
     article kind = if kind == "effect" then "an effect" else "a " <> kind
+    contents depth m scope e i a
+      | e == tvarE = tvarContents depth m scope a
+      | e == refE && i == 1 = refContents depth m scope a
+      | otherwise = go depth m scope a
+    -- A cell's contents aren't refined (DESIGN §3): where a cell is
+    -- made, its region can't be named, so a refined type couldn't be
+    -- stated there. A helper says what it needs in `requires`.
+    refContents depth m scope a = case a of
+      TRefined _ _ -> Left (refinedCell "a refined type")
+      TName an []
+        | not (an `S.member` tsTypes scope)
+        , Right ae <- lookupTypeName tenv m an
+        , refinedAlias (0 :: Int) ae ->
+            Left (refinedCell (quote an <> ", a refined type"))
+      _ -> go depth m scope a
+    refinedCell what =
+      "a cell's contents can't be " <> what <> ": write the unrefined type, and say what the contents must be in `requires` and `ensures` (a cell is made where its region can't be named, so a refinement couldn't be stated there) (DESIGN §3)"
     -- A TVar's contents keep their refinement, by name: `TVar[Cents]`.
     tvarContents depth m scope a = case a of
       TRefined _ _ ->
@@ -625,7 +647,7 @@ lookupClass tenv m n = do
 
 constraintsOf :: TypeEnv -> QName -> [TypeParam] -> Either Text [Constraint]
 constraintsOf tenv m ps =
-  sequence [(,n) <$> lookupClass tenv m c | TypeParam n cs <- ps, isUpperName n, "Effects" `notElem` cs, c <- cs]
+  sequence [(,n) <$> lookupClass tenv m c | TypeParam n cs <- ps, isUpperName n, not (any (`elem` cs) ["Effects", "RootEffects"]), c <- cs]
 
 -- The global environment --------------------------------------------------------
 
@@ -768,7 +790,7 @@ declEntries tenv' q (Decl _ _ _ (At _ body)) = case body of
         conv = fmap fst . convType tenv' q (typeScope (S.fromList vars))
     cons <- constraintsOf tenv' q ps
     let ctor name fields isFn =
-          EValue (Entity q name) (ValueInfo (VConstructor e) (Scheme vars [] cons [ParamSig fn ft | (fn, ft) <- fields] self pureRow isFn))
+          EValue (Entity q name) (ValueInfo (VConstructor e) (Scheme vars [] cons [ParamSig fn ft | (fn, ft) <- fields] self pureRow isFn []))
     classes <- traverse (lookupClass tenv' q) derived
     (shapeEntries, fieldTys) <- case rhs of
       RecordRhs fields -> do
@@ -804,7 +826,7 @@ declEntries tenv' q (Decl _ _ _ (At _ body)) = case body of
   LemmaDecl f -> (: []) . EValue (Entity q (fnName f)) . ValueInfo VLemma <$> fnScheme tenv' q [] [] Nothing f
   ConstantDecl (ConstantDef n t _) -> do
     (t', _) <- convType tenv' q (typeScope S.empty) t
-    pure [EValue (Entity q n) (ValueInfo VConstant (Scheme [] [] [] [] t' pureRow False))]
+    pure [EValue (Entity q n) (ValueInfo VConstant (Scheme [] [] [] [] t' pureRow False []))]
   InstanceDecl (InstanceDef ps headTy _) -> (: []) . EInstance <$> instanceOf ps headTy
   PrimitiveInstanceDecl ps headTy -> (: []) . EInstance <$> instanceOf ps headTy
   InvariantDecl _ -> pure []
@@ -841,7 +863,7 @@ fnScheme tenv q outerVars outerCons own (Function _ tps params ret clauses _) = 
     (Nothing, []) -> pure pureRow
     (Nothing, [row]) -> convRow tenv q scope row
     (Nothing, _) -> Left "a function has at most one `effects` clause"
-  pure (Scheme vars rows cons ps r effects True)
+  pure (Scheme vars rows cons ps r effects True (rootRowVarsOf tps))
 
 
 -- Instances -------------------------------------------------------------------
@@ -942,6 +964,8 @@ data Ctx = Ctx
   , -- | In a public declaration's signature or contract, which may name
     -- only public things (DESIGN §6).
     ctxSurface :: Maybe Surface
+  , -- | Row variables in scope declared @E: RootEffects@.
+    ctxRootRows :: Set Name
   }
 
 -- | The public declaration being checked, as the messages name it, and
@@ -990,13 +1014,15 @@ data St = St
     stLevels :: IntMap Int
   , -- | Each clause skolem: its level, the handler, the operation, and
     -- the type parameter it stands for.
-    stSkolems :: Map Name (Int, Span, Name, Name)
+    stSkolems :: Map Name (Int, Span, Text)
   , -- | A skolem that escaped through a variable older than it.
     stEscaped :: Maybe Name
   , -- | Whether the code checked so far named something private, or
     -- private fields: if a function body did, other modules' proofs can't
     -- unfold it (DESIGN §6).
     stTouchesPrivate :: Bool
+  , -- | Rows instantiated from @E: RootEffects@, still to be checked.
+    stRootRows :: [(Span, Row)]
   }
 
 -- | What a successful check records, for the interpreter and verifier.
@@ -1021,7 +1047,7 @@ failAt sp msg = do
 runCheck :: FilePath -> Ctx -> Check () -> Either Diagnostic (CheckResults, Bool)
 runCheck path ctx action =
   fmap results . runExcept $
-    runStateT (runReaderT (action >> finalize) ctx) (St 0 IM.empty IM.empty [] [] [] [] [] [] [] IM.empty M.empty Nothing False)
+    runStateT (runReaderT (action >> finalize) ctx) (St 0 IM.empty IM.empty [] [] [] [] [] [] [] IM.empty M.empty Nothing False [])
   where
     results (_, st) =
       let z = zonkWith (stSubst st) (stRows st)
@@ -1057,7 +1083,7 @@ checkModule tenv global (Loaded path m _) =
     runs = [(d, runCheck path ctx0 check) | d@(Decl _ _ _ (At sp body)) <- moduleDecls m, check <- declChecks q sp (declVisibility d) body]
     outcomes = [fst <$> r | (_, r) <- runs]
     q = moduleName m
-    ctx0 = Ctx global tenv (ModCtx q path (teScopes tenv M.! q)) M.empty S.empty S.empty [] pureRow FromPure False False NoTVarField Nothing Nothing
+    ctx0 = Ctx global tenv (ModCtx q path (teScopes tenv M.! q)) M.empty S.empty S.empty [] pureRow FromPure False False NoTVarField Nothing Nothing S.empty
 
 declChecks :: QName -> Span -> Visibility -> DeclBody -> [Check ()]
 declChecks q sp visibility = \case
@@ -1225,6 +1251,7 @@ withTypeParams sp outerVars outerCons ps k = do
         c
           { ctxTyVars = ctxTyVars c <> S.fromList (outerVars <> typeVarsOf ps)
           , ctxRowVars = ctxRowVars c <> S.fromList (rowVarsOf ps)
+          , ctxRootRows = ctxRootRows c <> S.fromList (rootRowVarsOf ps)
           , ctxGivens = ctxGivens c <> outerCons <> cons
           }
     )
@@ -1304,28 +1331,53 @@ rootEffectsCheck sp (Row ls tl) = do
   case tl of
     Closed -> pure ()
     _ -> failAt sp "`main`'s effects must be listed; a row variable would stand for effects nothing handles"
-  where
-    rootEffects =
-      [ Entity ["Std", "Console"] "Console"
-      , Entity ["Std", "Process"] "Args"
-      , Entity ["Std", "Fs"] "Fs"
-      , Entity ["Std", "Http"] "Http"
-      , Entity ["Std", "Db"] "Db"
-      , Entity ["Std", "Log"] "Log"
-      , Entity ["Std", "Stm"] "Atomic"
-      , Entity ["Std", "Concurrent"] "Spawn"
-      ]
+
+-- | The effects the runtime handles: `main`'s, and a task's in every
+-- thread (DESIGN §3).
+rootEffects :: [Entity]
+rootEffects =
+  [ Entity ["Std", "Console"] "Console"
+  , Entity ["Std", "Process"] "Args"
+  , Entity ["Std", "Fs"] "Fs"
+  , Entity ["Std", "Http"] "Http"
+  , Entity ["Std", "Db"] "Db"
+  , Entity ["Std", "Log"] "Log"
+  , Entity ["Std", "Stm"] "Atomic"
+  , Entity ["Std", "Concurrent"] "Spawn"
+  ]
+
+-- | A row instantiated from @E: RootEffects@ holds only root effects, and
+-- ends closed or in a row variable declared the same way. Tasks run in
+-- their own threads, where the runtime's handlers are the only ones: a
+-- cell, a `Fail` caught by `attempt`, or a user effect wouldn't be handled
+-- there.
+rootRowsCheck :: Check ()
+rootRowsCheck = do
+  pending <- gets stRootRows
+  modify' (\st -> st {stRootRows = []})
+  declared <- asks ctxRootRows
+  forM_ pending $ \(sp, row) -> do
+    Row ls tl <- zonkRow row
+    forM_ [e | EffInst e _ _ <- ls, e `notElem` rootEffects] $ \e ->
+      failAt sp $
+        "a task here would perform " <> quote (entityName e) <> ", but tasks run in their own threads, where only the runtime's effects are handled: "
+          <> T.intercalate ", " (map (quote . entityName) rootEffects)
+    case tl of
+      TailVar v
+        | not (v `S.member` declared) ->
+            failAt sp ("the effects in " <> quote v <> " could be any, but tasks may perform only the runtime's; declare " <> quote (v <> ": RootEffects"))
+      _ -> pure ()
 
 withEffects :: Row -> EffectsFrom -> Check a -> Check a
 withEffects row from = local (\c -> c {ctxEffects = row, ctxEffectsFrom = from})
 
 -- | Specs and proof code are pure (DESIGN §4.1), except that where @Stm@
--- is granted they may @read@ TVars: a postcondition can say what a TVar
--- holds.
+-- (or @Local@) is granted they may @read@ TVars (or @get@ cells): a
+-- postcondition can say what a TVar holds.
 inSpec :: Check a -> Check a
 inSpec k = do
   Row ls _ <- asks ctxEffects >>= zonkRow
-  let reads' = stmE `elem` map effEntity ls
+  let reads' = any (`elem` [stmE, localE]) (map effEntity ls)
   local (\c -> c {ctxEffects = pureRow, ctxEffectsFrom = FromPure, ctxSpecReads = ctxSpecReads c || reads'}) k
 
 -- | An effect's value parameters are literals, @any@, or the names of the
@@ -1578,7 +1630,8 @@ bindRow m row = do
   _ <- levelsAllow m (rowTypes row) (rowVariables row)
   modify' (\st -> st {stRows = IM.insert m row (stRows st)})
   where
-    rowTypes (Row ls _) = concatMap effTypes ls
+    -- A rigid tail counts too: a clause's row skolem mustn't escape.
+    rowTypes (Row ls tl) = concatMap effTypes ls <> [TyVar v | TailVar v <- [tl]]
     rowVariables (Row _ tl) = case tl of
       TailMeta n -> [n]
       _ -> []
@@ -1593,7 +1646,7 @@ levelsAllow m ts rowVars = do
   level <- gets (IM.findWithDefault m m . stLevels)
   zs <- traverse zonkKeeping ts
   skolems <- gets stSkolems
-  case [n | n <- concatMap tyVarNames zs, Just (k, _, _, _) <- [M.lookup n skolems], k > level] of
+  case [n | n <- concatMap tyVarNames zs, Just (k, _, _) <- [M.lookup n skolems], k > level] of
     n : _ -> do
       modify' (\st -> st {stEscaped = Just n})
       pure False
@@ -1606,7 +1659,8 @@ tyVarNames :: Ty -> [Name]
 tyVarNames = \case
   TyVar n -> [n]
   TyCon _ ts -> concatMap tyVarNames ts
-  TyFun ps r (Row ls _) -> concatMap tyVarNames (r : ps <> concatMap effTypes ls)
+  -- A rigid row variable a function type ends in counts as one it names.
+  TyFun ps r (Row ls tl) -> concatMap tyVarNames (r : ps <> concatMap effTypes ls) <> [v | TailVar v <- [tl]]
   TyTuple ts -> concatMap tyVarNames ts
   TyRecord fs -> concatMap tyVarNames (M.elems fs)
   TyRefined _ t -> tyVarNames t
@@ -1632,10 +1686,8 @@ escapeCheck =
   gets stEscaped >>= \case
     Nothing -> pure ()
     Just n -> do
-      (_, sp, op, v) <- gets (M.findWithDefault (0, noSpan, "", n) n . stSkolems)
-      failAt sp $
-        "the clause for " <> quote op <> " lets a value of its type parameter " <> quote v <> " escape (into something made outside the clause), "
-          <> "where it could reach another call of " <> quote op <> " at a different type; each call's " <> quote v <> " is its own (DESIGN §3)"
+      (_, sp, msg) <- gets (M.findWithDefault (0, noSpan, quote n <> " escapes") n . stSkolems)
+      failAt sp msg
 
 -- | Unify the expected type with the actual one, or report a mismatch.
 unify :: Span -> Ty -> Ty -> Check ()
@@ -1766,9 +1818,30 @@ performs sp who row = do
     TailVar v -> case rest of
       Row _ (TailVar w) | v == w -> pure ()
       Row _ (TailMeta m) -> bindRow m (Row [] (TailVar v))
-      _ -> notAllowed allowed ("the effects in " <> quote v)
+      _ -> do
+        -- A clause's row skolem: what a generic operation's caller
+        -- allows, which differs from call to call.
+        skolem <- gets (M.member v . stSkolems)
+        if skolem
+          then
+            failAt sp $
+              who <> " performs " <> quote (T.takeWhile (/= ' ') v) <> ", the row of effects of the operation this clause handles: it stands for whatever each call allows, "
+                <> "which the clause can't know, so it can't perform them (DESIGN §3)"
+          else notAllowed allowed ("the effects in " <> quote v)
   where
-    cover allowed (Row als atl) inst@(EffInst e tys vals) = case break ((== e) . effEntity) als of
+    cover allowed (Row als atl) inst@(EffInst e tys vals) = do
+     -- `Local[R]` is matched by its region: each `with_state` has its
+     -- own, and they're distinct, so there's no question which one an
+     -- operation on a cell means. Any other effect reaches the innermost.
+     tys' <- traverse zonk tys
+     regions <- forM als $ \l -> if effEntity l == e then (== tys') <$> traverse zonk (effTypes l) else pure False
+     let matching = case [i | (i, True) <- zip [0 :: Int ..] regions] of
+           i : _ | e == localE -> Just i
+           _ -> Nothing
+         split = case matching of
+           Just i -> (take i als, drop i als)
+           Nothing -> break ((== e) . effEntity) als
+     case split of
       (before, found : after) -> do
         ok <- allM (zipWith unifies (effTypes found) tys)
         unless ok $ do
@@ -1776,7 +1849,9 @@ performs sp who row = do
           i <- zonkInst inst
           failAt sp (who <> " performs " <> quote (showInst i) <> ", but the " <> quote (entityName e) <> " allowed here is " <> quote (showInst f))
         forM_ (zip (effValues found) vals) $ \((key, av), (_, v)) -> covers inst found key av v
-        pure (Row (before <> after) atl)
+        -- A region's `Local` may be performed more than once in a row
+        -- (`move(from: a, to: a)`): it's one cell.
+        pure (if e == localE then Row als atl else Row (before <> after) atl)
       (_, []) -> case atl of
         TailMeta m -> do
           fresh' <- freshTail
@@ -1840,9 +1915,16 @@ instantiate sp = instantiateWith sp M.empty
 
 -- | Instantiate, with some type variables already decided.
 instantiateWith :: Span -> Map Name Ty -> Scheme -> Check ([ParamSig], Ty, Row)
-instantiateWith sp given (Scheme vars rowVars cons params result effects _) = do
+instantiateWith sp given = instantiateRows sp given M.empty
+
+-- | Instantiate, with some type variables and row variables given.
+instantiateRows :: Span -> Map Name Ty -> Map Name Row -> Scheme -> Check ([ParamSig], Ty, Row)
+instantiateRows sp given givenRows (Scheme vars rowVars cons params result effects _ rootRows) = do
   metas <- M.fromList <$> traverse (\v -> (v,) <$> maybe fresh pure (M.lookup v given)) vars
-  rows <- M.fromList <$> traverse (\v -> (v,) <$> freshRow) rowVars
+  rows <- M.fromList <$> traverse (\v -> (v,) <$> maybe freshRow pure (M.lookup v givenRows)) rowVars
+  -- A row that may hold only root effects is checked once it's known.
+  forM_ rootRows $ \v -> forM_ (M.lookup v rows) $ \row ->
+    modify' (\st -> st {stRootRows = (sp, row) : stRootRows st})
   modify' (\st -> st {stInstantiations = (sp, metas) : stInstantiations st})
   forM_ cons $ \(c, v) -> forM_ (M.lookup v metas) $ \t -> want c t sp
   let sub = substRowVars rows . substTy metas
@@ -1931,6 +2013,14 @@ checkOrInfer' (At sp kind) expected = case kind of
             (ps, r, effects) <- instantiate sp scheme
             row <- openRow effects
             done (TyFun (map paramSigType ps) r row)
+      -- `with_state` gives each call its own region, and a root row is
+      -- checked at each call: as values, neither would be (DESIGN §3).
+      GlobalValue e _
+        | e == withStateE ->
+            failAt sp "`with_state` can only be called directly, as in `with_state(initial: 0, body: function(counter) is ... end)`: each call makes its own region, which a function value wouldn't"
+      GlobalValue _ (ValueInfo _ scheme)
+        | not (null (schemeRootRows scheme)) ->
+            failAt sp (quote n <> " can only be called directly: its tasks may perform only the runtime's effects, which is checked at each call")
       GlobalValue _ (ValueInfo _ scheme) -> do
         (ps, r, effects) <- instantiate sp scheme
         if schemeIsFunction scheme
@@ -2045,6 +2135,8 @@ checkOrInfer' (At sp kind) expected = case kind of
     -- user handler could make false (DESIGN §5).
     when (stmE `elem` [eff | (_, _, _, eff, _, _) <- ops]) $
       failAt sp "`Stm` can't be handled here: only `atomically` handles it, since its operations mean what the verifier assumes they do (DESIGN §5)"
+    when (localE `elem` [eff | (_, _, _, eff, _, _) <- ops]) $
+      failAt sp "`Local` can't be handled here: only `with_state` handles it, since its operations mean what the verifier assumes they do (DESIGN §3)"
     -- A handler takes every operation of the effects it handles; a
     -- partial one would grant operations nothing handles (DESIGN §3).
     forM_ (nubOrd [eff | (_, _, _, eff, _, _) <- ops]) $ \eff -> do
@@ -2077,9 +2169,24 @@ checkOrInfer' (At sp kind) expected = case kind of
       skolems <- forM [v | v <- schemeVars scheme, v `notElem` esTypes sig] $ \v -> do
         n <- gets stNext
         let name = v <> " of " <> op <> " #" <> tshow n
-        modify' (\st -> st {stNext = stNext st + 1, stSkolems = M.insert name (n, sp, op, v) (stSkolems st)})
+        let escapes =
+              "the clause for " <> quote op <> " lets a value of its type parameter " <> quote v <> " escape (into something made outside the clause), "
+                <> "where it could reach another call of " <> quote op <> " at a different type; each call's " <> quote v <> " is its own (DESIGN §3)"
+        modify' (\st -> st {stNext = stNext st + 1, stSkolems = M.insert name (n, sp, escapes) (stSkolems st)})
         pure (v, TyVar name)
-      (params, opResult, _) <- instantiateWith sp (M.fromList (zip (esTypes sig) (effTypes inst)) <> M.fromList skolems) scheme
+      -- So are its row variables (`go[E: Effects](task: () -> Unit
+      -- effects { E })`): a callback it's given performs whatever its
+      -- call site allows, which the clause can't know.
+      rowSkolems <- forM (schemeRowVars scheme) $ \v -> do
+        n <- gets stNext
+        let name = v <> " of " <> op <> " #" <> tshow n
+            escapes =
+              "the clause for " <> quote op <> " lets its row of effects " <> quote v <> " escape (into something made outside the clause), "
+                <> "where it could stand for another call's effects; each call's " <> quote v <> " is its own (DESIGN §3)"
+        modify' (\st -> st {stNext = stNext st + 1, stSkolems = M.insert name (n, sp, escapes) (stSkolems st)})
+        pure (v, name)
+      let rootSkolems = [name | (v, name) <- rowSkolems, v `elem` schemeRootRows scheme]
+      (params, opResult, _) <- instantiateRows sp (M.fromList (zip (esTypes sig) (effTypes inst)) <> M.fromList skolems) (M.fromList [(v, Row [] (TailVar name)) | (v, name) <- rowSkolems]) scheme
       when (length params /= length names) $
         failAt sp (quote op <> " takes " <> tshow (length params) <> " argument" <> plural (length params))
       let binds = M.fromList [(n, t) | (n, ParamSig _ t) <- zip names params]
@@ -2087,11 +2194,23 @@ checkOrInfer' (At sp kind) expected = case kind of
       -- Resuming runs the rest of the handled computation, under this
       -- handler, so it performs what's allowed outside.
       bindLocals sp binds $
-        local (\c -> c {ctxLocals = M.insert "resume" (TyFun [opResult] ty outer) (ctxLocals c), ctxResume = True, ctxTyVars = S.fromList [n | (_, TyVar n) <- skolems] <> ctxTyVars c}) (checkBlock body ty)
+        local
+          ( \c ->
+              c
+                { ctxLocals = M.insert "resume" (TyFun [opResult] ty outer) (ctxLocals c)
+                , ctxResume = True
+                , ctxTyVars = S.fromList [n | (_, TyVar n) <- skolems] <> ctxTyVars c
+                , ctxRowVars = S.fromList (map snd rowSkolems) <> ctxRowVars c
+                , ctxRootRows = S.fromList rootSkolems <> ctxRootRows c
+                }
+          )
+          (checkBlock body ty <* rootRowsCheck)
       escapeCheck
       ty' <- zonk ty
       forM_ [(v, n) | (v, TyVar n) <- skolems, mentionsTyVar n ty'] $ \(v, _) ->
         failAt sp ("the clause for " <> quote op <> " gives the handler a result of " <> quote op <> "'s type parameter " <> quote v <> ", which is different for each use of " <> quote op)
+      forM_ [(v, n) | (v, n) <- rowSkolems, n `elem` tyVarNames ty'] $ \(v, _) ->
+        failAt sp ("the clause for " <> quote op <> " gives the handler a result that performs " <> quote op <> "'s row of effects " <> quote v <> ", which is different for each use of " <> quote op)
     forM_ [(n, body) | HandlerClause _ (OnReturn n) body <- clauses] $ \(n, body) ->
       bindLocals sp (M.singleton n valueTy) (local (\c -> c {ctxResume = False}) (checkBlock body ty))
     unless (any isReturn clauses) (unify sp ty valueTy)
@@ -2159,13 +2278,25 @@ callExpr sp f args piped expected = do
   specReads <- asks ctxSpecReads
   result <- case named of
     Just (ent, n, ValueInfo _ scheme) -> do
-      (params, r, effects) <- instantiate sp scheme
+      region <- if ent == withStateE then Just <$> newRegion sp args else pure Nothing
+      (params, r, effects) <- instantiateWith sp (maybe M.empty (M.singleton "R" . TyVar) region) scheme
       arity n (length params)
       -- Before the arguments, so a row variable (`map`'s `E`) takes the
       -- effects allowed here, and a function argument may use them. A
       -- spec may read TVars without performing `Stm`.
-      unless (specReads && ent == stmReadE) $
-        performs sp (quote n) (withArguments effects)
+      --
+      -- Some calls wait for their arguments. One that performs a cell's
+      -- `Local` (`get`, `put`, a helper given a cell) learns its region
+      -- from the cell. One with a row of root effects (`run_concurrently`)
+      -- takes the effects its tasks perform, not everything allowed here.
+      Row callLabels _ <- zonkRow effects
+      let unknownRegion = or [any isMeta (effTypes i) | i <- callLabels, effEntity i == localE]
+          isMeta = \case
+            TyMeta _ -> True
+            _ -> False
+          deferred = ent `elem` [localGetE, localPutE] || unknownRegion || not (null (schemeRootRows scheme))
+          performed = unless (specReads && ent `elem` [stmReadE, localGetE]) $ performs sp (quote n) (withArguments effects)
+      unless deferred performed
       invariantParam <- asks ctxInvariantOf
       forM_ invariantParam $ \p ->
         when (ent == stmReadE && not (all (ownField p) args)) $
@@ -2188,7 +2319,16 @@ callExpr sp f args piped expected = do
             | i == 0 && ent == stmWriteE = WriteField
             | otherwise = NoTVarField
       forM_ (zip3 [0 ..] args params) $ \(i, Arg _ e, p) ->
-        local (\c -> c {ctxTVarField = fieldUse i}) (checkExpr e (paramSigType p))
+        local (\c -> c {ctxTVarField = fieldUse i, ctxTyVars = maybe id S.insert region (ctxTyVars c)}) (checkExpr e (paramSigType p))
+      -- A root row is what the tasks perform, and no more.
+      when (not (null (schemeRootRows scheme))) $ do
+        pending <- gets stRootRows
+        forM_ [row | (sp', row) <- pending, sp' == sp] $ \row ->
+          zonkRow row >>= \case
+            Row _ (TailMeta m) -> bindRow m (Row [] Closed)
+            _ -> pure ()
+      when deferred performed
+      forM_ region (regionEscapeCheck sp r effects)
       constructionCheck sp ent args
       pure r
     Nothing -> do
@@ -2317,6 +2457,37 @@ fieldOfKnown sp t n = do
         _ -> missingField
     TyRecord fields -> maybe missingField pure (M.lookup n fields)
     _ -> missingField
+
+-- Local state -------------------------------------------------------------------
+
+-- | A @with_state@'s region (DESIGN §3): a fresh rigid type, younger than
+-- every type variable made before the call, so nothing made outside can
+-- come to hold one of its cells ('levelsAllow'). Its body is a lambda
+-- written right there, which the verifier runs in place.
+newRegion :: Span -> [Arg] -> Check Name
+newRegion sp args = do
+  case [e | Arg (Just "body") e <- args] <> [e | Arg Nothing e <- drop 1 args] of
+    At _ (ELambda [_] _) : _ -> pure ()
+    _ -> failAt sp ("`with_state`'s " <> quote "body" <> " is written as a lambda right there, as in " <> quote "with_state(initial: 0, body: function(counter) is ... end)")
+  n <- gets stNext
+  -- Named for where it's made, which is what messages show of it.
+  let Pos line col = spanStart sp
+      name = "the with_state at " <> tshow line <> ":" <> tshow col
+      escapes = "the cell made by this `with_state` would outlive it, held by something made outside it; a cell lives only as long as its `with_state` (DESIGN §3)"
+  modify' (\st -> st {stNext = n + 1, stSkolems = M.insert name (n, sp, escapes) (stSkolems st)})
+  pure name
+
+-- | Nor can the call's result or remaining effects hold the region: the
+-- result could be the cell itself, or a function that reads it later.
+regionEscapeCheck :: Span -> Ty -> Row -> Name -> Check ()
+regionEscapeCheck sp r effects region = do
+  escapeCheck
+  r' <- zonk r
+  Row ls _ <- zonkRow effects
+  -- `tyVarNames` looks into function types' effects too: a function that
+  -- performs `Local[R]` holds the cell as surely as `Ref[R, A]` does.
+  when (region `elem` (tyVarNames r' <> concatMap tyVarNames (concatMap effTypes ls))) $
+    failAt sp ("the cell made by this `with_state` would outlive it, in what it returns (" <> quote (showTy r') <> "); a cell lives only as long as its `with_state` (DESIGN §3)")
 
 -- Visibility --------------------------------------------------------------------
 
@@ -2689,6 +2860,7 @@ finalize = do
   resolveFields
   solveWanted
   escapeCheck
+  rootRowsCheck
   gets stFields >>= \case
     (sp, _, n, _, _) : _ -> failAt sp ("can't tell what type this value has, so can't look up its field " <> quote n <> "; add a type annotation")
     [] -> pure ()

@@ -1,0 +1,17 @@
+module Reject.CellEscapeOuter
+
+-- expect: the cell made by this `with_state` would outlive it, held by something made outside it
+-- line: 12
+
+import Std.State (Ref, Local, with_state, get, put)
+import Std.Option (Option, None, Some)
+
+-- Storing the inner cell in the outer one would outlive the inner call.
+function f() -> Int is
+  with_state(initial: None, body: function(outer) is
+    with_state(initial: 1, body: function(inner) is
+      put(outer, Some(inner))
+      0
+    end)
+  end)
+end

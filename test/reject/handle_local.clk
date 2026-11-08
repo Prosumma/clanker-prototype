@@ -1,0 +1,16 @@
+module Reject.HandleLocal
+
+-- expect: `Local` can't be handled here: only `with_state` handles it
+-- line: 11
+
+import Std.State (Ref, Local, with_state, get, put)
+
+-- A handler could make `get` answer anything.
+function f() -> Int is
+  with_state(initial: 0, body: function(c) is
+    handle get(c)
+      on get(r) => resume(3)
+      on put(r, v) => resume(())
+    end
+  end)
+end

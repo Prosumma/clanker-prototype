@@ -1,0 +1,17 @@
+module Reject.ConcurrentLocal
+
+-- expect: a task here would perform `Local`, but tasks run in their own threads
+-- line: 15
+
+import Std.State (Ref, Local, with_state, get, put)
+import Std.Concurrent (Spawn, run_concurrently)
+
+-- Two threads would write one cell, and no handler reaches them.
+function f() -> Unit
+  effects { Spawn }
+is
+  with_state(
+    initial: 0,
+    body: function(c) => run_concurrently([function() => put(c, 1), function() => put(c, 2)]),
+  )
+end

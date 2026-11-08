@@ -89,14 +89,16 @@ Every function type carries an effect row, and a body may perform only what its 
 - **Calls.** A call's effects must be covered by those allowed where it's made: the function's `effects` clause, or, in a function value, its type's row. A row variable (`map`'s `E`) takes the effects allowed at the call, so the function passed in may perform them too.
 - **Rows** unify Koka-style, with scoped labels, so a row can hold two `Fail`s. Type arguments unify (`Fail[E]` picks up `CountError` from what `run` performs), which settles the type parameters only effects determine, like `attempt`'s error type. A constraint still on an unknown type is now an error.
 - **Function values.** A named function used as a value has an open row, so it can be passed where more is allowed. An effect parameter naming its own argument widens to `any`.
-- **Handlers** add their effects to the handled code's row, with `any` parameters. A handler must have a clause for every operation of each effect it handles. Clause bodies and `resume` run with the effects allowed outside. `resume` can only be called, at most once on any path, and never from a function value. A generic operation's own type parameters are rigid in its clause (`on gen() => resume("x")` is an error for `gen[A]() -> A`), and can't escape it: by levels, nothing made outside the clause may be bound to a type mentioning them. No user handler may take `Stm`; only `atomically` handles it.
+- **Handlers** add their effects to the handled code's row, with `any` parameters. A handler must have a clause for every operation of each effect it handles. Clause bodies and `resume` run with the effects allowed outside. `resume` can only be called, at most once on any path, and never from a function value. A generic operation's own type parameters and row variables are rigid in its clause (`on gen() => resume("x")` is an error for `gen[A]() -> A`, and a clause can't run a callback whose effects are the operation's `E`), and can't escape it: by levels, nothing made outside the clause may be bound to a type mentioning them, a function type ending in such a row included. No user handler may take `Stm`; only `atomically` handles it.
+- **Tasks** (`run_concurrently[E: RootEffects]`) perform only root effects, the ones the runtime handles in every thread. A function passing its own row there declares it `RootEffects`, and such a function is only called directly. Its row is checked after the arguments, closed, so it's what the tasks perform.
+- **Local state** (`with_state`, only called directly). A cell's contents can't be a refined type. Each call gets a fresh rigid region `R`, younger than everything made before it, so by levels nothing made outside can hold its cell. Its result and remaining effects can't mention `R` either, including a function type's `Local[R]`. The body must be a lambda at the call. `Local[R]` is matched by region rather than by being innermost, and a call whose `Local` region isn't known yet (`get`, `put`, a helper given a cell) checks its effect after its arguments have fixed it. A region's `Local` may be performed more than once in one row. No user handler may take `Local`, `run_concurrently`'s tasks can't perform it, and specs may `get` where `Local` is granted.
 - **Effect parameters** must be written out (`Fs[read: any]`, not `Fs`), and each one is a literal, `any`, or the name of one of the function's parameters, of the declared type. The checker rejects `any` where only a specific value is granted, and two literals that differ. Everything else is left to the verifier.
 - **`main`** may perform only the root effects the runtime handles.
 
 Not yet:
 
 - When two function types are unified, effect parameters that name values are compared by spelling.
-- Effect handlers installed around `run_concurrently` don't reach its tasks at runtime (see the interpreter), though the checker allows it.
+- When two function types are unified, their rows unify with scoped labels, so `{ Local[Ra], Local[Rb] }` doesn't unify with `{ Local[Rb], Local[Ra] }`. Only `performs` matches `Local` by region.
 
 ## What the interpreter does
 
@@ -111,7 +113,7 @@ Not yet:
 - **Grapheme segmentation is approximate:** combining marks, ZWJ sequences, emoji modifiers, variation selectors, and regional-indicator pairs. Full UAX #29 isn't implemented.
 - **Some primitives aren't implemented:** `decode_json` (it needs the target type at runtime), and the `Http` and `Db` effects. `10_order_sync.clk` type-checks but can't run.
 - **Instance members with bodies aren't dispatched at runtime.** Class methods work for the built-in instances, by the shape of the value.
-- **Effect handlers installed around `run_concurrently` don't reach into its threads.** The tasks only see the built-in effects.
+- **`run_concurrently`'s tasks see only the built-in effects,** which is why the checker allows them nothing else.
 
 ## What the verifier proves
 
@@ -145,12 +147,16 @@ With effects (step 5):
 - **TVar state** is an array per element type, threaded through the body. `read` selects, and the value has the TVar's refinement. `write` stores, and owes the value the refinement. A call that might run transactional code (an `Stm` function, a row variable, a function value, another effect's operation) replaces the arrays with unknown ones, and its postcondition says what's known afterwards. Both branches of an `if`, `match`, `and`, or `or` start from the same state, and merge. `old(...)` reads the state on entry. TVars created by `new_tvar` are distinct.
 - **Invariants** (with ownership, DESIGN §5): a new value must satisfy its invariant. Code that writes a value's TVars must re-establish its invariant before it returns or commits, and before anything that might not return here (an operation other than `Stm`'s, or a call that may perform one). A write is attributed to the value it names (`write(x.f, ...)`), from the syntax. An `Stm` function's result of an invariant type must satisfy the invariant. Values it didn't write keep theirs, so an `Stm` function may assume its parameters', a transaction those of the values in scope, and anything may re-assume untouched values' invariants after a call. A call to an `Stm` function owes the invariant of any argument that might have been written. A transaction is any function value that may perform `Stm` where nothing around it may. Other function values, and handler clauses, run at an unknown point, so they assume nothing.
 - **Other modules' definitions.** A function or constant from another module is known by its contract or declared type, and by its definition only if it's public and the definition names only public things (DESIGN §4). Those are recorded by the checker.
+- **Local state** (`with_state`, DESIGN §3). A cell is a TVar to the verifier: `get` and `put` are `read` and `write` on the same heap, and a new cell is distinct from the others made in the function. The body, a lambda at the call, is verified in place. A call that might use cells (one whose effects include `Local`, or a row variable) replaces the heap, like an `Stm` call.
 - **Handler clauses.** Each operation clause is verified, assuming the operation's parameter refinements and precondition. `resume`'s argument must satisfy the operation's result type and postcondition (with `old(...)` the state at the operation). A handler can make a computation that doesn't return (`fail`) return, so code after a `handle` is live.
 
 Not yet:
 
 - **No frame conditions.** After an `Stm` call, a caller knows only what the callee's postcondition says about TVars (DESIGN open question 8). Inside an invariant type's module, a function holding two values that calls a helper on one must still re-establish the other's invariant if it wrote it.
-- **A new TVar is known to be distinct from other new ones,** not from TVars that existed before.
+- **A new TVar or cell is known to be distinct** from the others made in the function and from those in scope (parameters and locals), but not from ones reachable only through a value's fields.
+- **A call that might use cells forgets all of them,** and all TVars, apart from what its postcondition says. A region has one cell, so `Local[R]` could serve as a frame (DESIGN open question 8).
+- **A cell's contents aren't refined.** As everywhere outside `TVar`, `Cents` is `Int` inside a `Ref`, so `get` gives a plain `Int`, and a refinement is owed only where the value reaches a declared type.
+- **State through an effect-polymorphic callback is lost.** After `for_each(xs, action: function(x) => put(sum, get(sum) + x))`, nothing is known about `sum`, as after any call that might touch state. Folds keep what's known.
 - **Refinements inside a parameter's type arguments aren't assumed:** `amounts: List[Cents]` doesn't make the elements `Cents`. (So they aren't owed either, and nothing relies on them.)
 - **A `handle` expression's value is unknown**, even for `handle 5 on ...`.
 - **Structural termination** is for a function calling only itself, on one parameter; mutual recursion, and recursion that shrinks different parameters by turns (`merge`), need measures.

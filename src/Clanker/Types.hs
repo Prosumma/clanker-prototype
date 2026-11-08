@@ -49,6 +49,12 @@ module Clanker.Types
   , stmWriteE
   , stmNewTVarE
   , tvarE
+  , refE
+  , localE
+  , localGetE
+  , localPutE
+  , withStateE
+  , runConcurrentlyE
   , float32E
   , fixedWidthRanges
   , fixedWidthOf
@@ -153,6 +159,9 @@ data Scheme = Scheme
   , -- | False for constants and constructors without fields: the value is
     -- the result itself, not a function.
     schemeIsFunction :: Bool
+  , -- | Row variables that may hold only the root effects
+    -- (@E: RootEffects@), which the runtime handles in every thread.
+    schemeRootRows :: [Name]
   }
   deriving stock (Show)
 
@@ -301,6 +310,16 @@ stmReadE = Entity ["Std", "Stm"] "read"
 stmWriteE = Entity ["Std", "Stm"] "write"
 stmNewTVarE = Entity ["Std", "Stm"] "new_tvar"
 tvarE = Entity ["Std", "Stm"] "TVar"
+
+-- | Local state (DESIGN §3): a cell, the effect of using one, its
+-- operations, and the one handler.
+refE, localE, localGetE, localPutE, withStateE, runConcurrentlyE :: Entity
+refE = Entity ["Std", "State"] "Ref"
+localE = Entity ["Std", "State"] "Local"
+localGetE = Entity ["Std", "State"] "get"
+localPutE = Entity ["Std", "State"] "put"
+withStateE = Entity ["Std", "State"] "with_state"
+runConcurrentlyE = Entity ["Std", "Concurrent"] "run_concurrently"
 
 float32E :: Entity
 float32E = Entity ["Std", "Float"] "Float32"

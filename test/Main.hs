@@ -303,6 +303,8 @@ programTests =
   , runsWith "examples/05_wordcount.clk" ["test/fixtures/words.txt"] 0 ["6\ttest/fixtures/words.txt"]
   , runsWith "test/visibility/display_opaque.clk" [] 0 ["Account(id: 3, ..)", "Token(..)"]
   , loadsFromInside
+  , runsWith "test/verified/local_state.clk" [] 0 ["2 11 7"]
+  , runsWith "test/verified/local_state_nesting.clk" [] 0 ["a", "a", "2 3"]
   , runsWith "test/visibility/renamed_imports.clk" [] 0 ["3 0 5 7 3 0", "no shape"]
   , runsWith "examples/05_wordcount.clk" [] 2 ["usage: wordcount FILE..."]
   , runsWith "examples/05_wordcount.clk" ["test/fixtures/missing.txt"] 1 ["cannot read test/fixtures/missing.txt: NotFound"]

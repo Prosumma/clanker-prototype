@@ -1,0 +1,24 @@
+module Std.State
+
+-- Local mutable state, named by a handle (DESIGN §3).
+
+--| A cell of local state. It lives in the region `R` of the `with_state`
+--| that made it, and can't outlive that call.
+public primitive type Ref[R, A]
+
+--| Reading and writing the cells of region `R`. Only `with_state`
+--| handles it.
+public effect Local[R]
+  function get[A](ref: Ref[R, A]) -> A
+  function put[A](ref: Ref[R, A], value: A) -> Unit
+end
+
+--| Runs `body` with a new cell holding `initial`, and gives back what
+--| `body` returns. `body` is written as a lambda right there. Its region
+--| is its own: neither the result nor anything made outside can hold the
+--| cell, so the cell is gone when the call returns.
+public primitive function with_state[R, A, B, E: Effects](
+  initial: A,
+  body: (Ref[R, A]) -> B effects { Local[R] | E },
+) -> B
+  effects { E }

@@ -1,0 +1,24 @@
+module Reject.ClauseRowTasks
+
+-- expect: `run_concurrently` performs `E`, the row of effects of the operation this clause handles
+-- line: 21
+
+import Std.Concurrent (Spawn, run_concurrently)
+import Std.List (List)
+
+-- The operation's `E` isn't the enclosing function's, so its tasks could
+-- perform anything, a `Fail` an `attempt` outside meant to catch
+-- included (review #84).
+effect Go
+  function go[E: Effects](tasks: List[() -> Unit effects { E }]) -> Unit
+end
+
+function outer[E: RootEffects](action: () -> Unit effects { Go | E }) -> Unit
+  effects { Spawn | E }
+is
+  handle action()
+    on go(tasks) =>
+      run_concurrently(tasks)
+      resume(())
+  end
+end

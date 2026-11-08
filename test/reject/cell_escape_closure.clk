@@ -1,0 +1,12 @@
+module Reject.CellEscapeClosure
+
+-- expect: the cell made by this `with_state` would outlive it, in what it returns
+-- line: 10
+
+import Std.State (Ref, Local, with_state, get, put)
+
+-- A function that reads the cell holds it, through its effects.
+function f() -> Int is
+  let g = with_state(initial: 0, body: function(c) => function() => get(c))
+  0
+end

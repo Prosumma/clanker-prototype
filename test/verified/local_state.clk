@@ -1,0 +1,53 @@
+module Verified.LocalState
+
+-- Local state through `with_state` (DESIGN §5): each cell is fresh and
+-- distinct, `get` and `put` are tracked through the body, and a helper
+-- that takes a cell states what it does to it.
+
+import Std.Console (Console, print_line)
+import Std.State (Ref, Local, with_state, get, put)
+
+function counted() -> Int
+  ensures result == 2
+is
+  with_state(initial: 0, body: function(c) is
+    put(c, get(c) + 1)
+    put(c, get(c) + 1)
+    get(c)
+  end)
+end
+
+function nested() -> Int
+  ensures result == 11
+is
+  with_state(initial: 1, body: function(a) is
+    with_state(initial: 10, body: function(b) is
+      put(a, get(a) + get(b))
+      put(b, 0)
+      get(a) + get(b)
+    end)
+  end)
+end
+
+function bump[R](cell: Ref[R, Int]) -> Unit
+  effects { Local[R] }
+  ensures get(cell) == old(get(cell)) + 1
+is
+  put(cell, get(cell) + 1)
+end
+
+function twice() -> Int
+  ensures result == 7
+is
+  with_state(initial: 5, body: function(c) is
+    bump(c)
+    bump(c)
+    get(c)
+  end)
+end
+
+function main() -> Unit
+  effects { Console }
+is
+  print_line("${counted()} ${nested()} ${twice()}")
+end

@@ -1,0 +1,68 @@
+module Verified.LocalStateNesting
+
+import Std.Console (Console, print_line)
+import Std.Concurrent (Spawn, run_concurrently)
+import Std.State (Ref, Local, with_state, get, put)
+import Std.Stm (Stm, TVar, new_tvar, read, write)
+
+-- Helpers on an outer cell inside an inner `with_state`, in either
+-- argument order, and on one cell twice (review #79).
+function bump[R](cell: Ref[R, Int]) -> Unit
+  effects { Local[R] }
+  ensures get(cell) == old(get(cell)) + 1
+is
+  put(cell, get(cell) + 1)
+end
+
+function move[R, S](from: Ref[R, Int], to: Ref[S, Int]) -> Unit
+  effects { Local[R], Local[S] }
+  ensures get(to) == old(get(from))
+is
+  put(to, get(from))
+end
+
+function nested() -> Int
+  ensures result == 2
+is
+  with_state(initial: 1, body: function(a) is
+    with_state(initial: 10, body: function(b) is
+      bump(a)
+      move(from: a, to: b)
+      move(from: b, to: a)
+      move(from: a, to: a)
+      -- A helper's call forgets what its postcondition doesn't say about
+      -- other cells (no frames yet, DESIGN open question 8), so `a`, not
+      -- `b`, is what's known here.
+      get(a)
+    end)
+  end)
+end
+
+-- Tasks that don't touch a cell may run while one is in scope (review
+-- #78).
+function concurrently() -> Int
+  effects { Spawn, Console }
+is
+  with_state(initial: 3, body: function(c) is
+    run_concurrently([function() => print_line("a"), function() => print_line("a")])
+    get(c)
+  end)
+end
+
+-- A cell made here is none of the TVars passed in, so what they hold is
+-- kept (review #81).
+function frame(t: TVar[Int]) -> Int
+  effects { Stm }
+  ensures read(t) == old(read(t))
+is
+  with_state(initial: 0, body: function(c) is
+    put(c, 1)
+    get(c)
+  end)
+end
+
+function main() -> Unit
+  effects { Spawn, Console }
+is
+  print_line("${nested()} ${concurrently()}")
+end

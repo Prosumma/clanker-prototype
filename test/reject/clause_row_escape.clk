@@ -1,0 +1,18 @@
+module Reject.ClauseRowEscape
+
+-- expect: the clause for `go` lets its row of effects `E` escape
+-- line: 13
+
+-- Handing the callback out of the clause would carry one call's effects
+-- to wherever the result goes (review #84).
+effect Go
+  function go[E: Effects](task: () -> Unit effects { E }) -> Unit
+end
+
+function grab(action: () -> Unit effects { Go }) -> Unit is
+  let held = handle action()
+    on go(task) => task
+    on return(_) => function() => ()
+  end
+  ()
+end

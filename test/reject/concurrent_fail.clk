@@ -1,0 +1,15 @@
+module Reject.ConcurrentFail
+
+-- expect: a task here would perform `Fail`
+-- line: 14
+
+import Std.Concurrent (Spawn, run_concurrently)
+import Std.Fail (Fail, fail)
+
+-- No handler reaches a task's thread, so a failure there would go
+-- unhandled: tasks perform only the runtime's effects.
+function f() -> Unit
+  effects { Spawn, Fail[Int] }
+is
+  run_concurrently([function() => fail(1)])
+end

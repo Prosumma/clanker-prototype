@@ -1,0 +1,15 @@
+module Reject.WithStateNotLambda
+
+-- expect: `with_state`'s `body` is written as a lambda right there
+-- line: 14
+
+import Std.State (Ref, Local, with_state, get, put)
+
+-- The verifier runs the body in place, so it's written there.
+function body(c: Int) -> Int is
+  c
+end
+
+function f() -> Int is
+  with_state(initial: 0, body: body)
+end

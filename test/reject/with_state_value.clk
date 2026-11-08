@@ -1,0 +1,13 @@
+module Reject.WithStateValue
+
+-- expect: `with_state` can only be called directly
+-- line: 11
+
+import Std.State (Ref, Local, with_state, get, put)
+
+-- As a value it would make no region, and its `Local` would take any
+-- cell's: a pure function could write its caller's cell (review #76).
+function sneaky[R](c: Ref[R, Int]) -> Int is
+  let w = with_state
+  0
+end
