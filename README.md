@@ -1,6 +1,6 @@
 # Clanker prototype
 
-A throwaway Haskell prototype for kicking the tires on the design in [`../DESIGN.md`](../DESIGN.md). The real compiler will be written in Rust; nothing here is meant to last. Optimize for speed of change, not polish.
+A throwaway Haskell prototype for kicking the tires on the design in [`DESIGN.md`](DESIGN.md). The real compiler will be written in Rust; nothing here is meant to last. Optimize for speed of change, not polish.
 
 ## Layout
 
