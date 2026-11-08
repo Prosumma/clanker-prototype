@@ -4,7 +4,7 @@ A throwaway Haskell prototype for kicking the tires on the design in [`DESIGN.md
 
 ## Layout
 
-- `examples/` — hand-written Clanker programs (`.clk`), in canonical form. They're the test suite. `examples/NOTES.md` records what writing them revealed about the design.
+- `examples/` — hand-written Clanker programs (`.clk`), in canonical form. They're the test suite.
 - `std/` — the standard library, in Clanker: enough of it for the examples. Real bodies where they're easy (most of `Std.List`, `Std.Fail`); `primitive` declarations for what the runtime provides.
 - `src/Clanker/` — compiler stages:
   - `Syntax` — the syntax tree, including comments and literal spellings, so formatting round-trips.

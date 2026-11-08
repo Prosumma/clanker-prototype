@@ -2,7 +2,7 @@
 
 > Status: early sketch (started 2026-11-07). "Clanker" is a code name; a real name is still to be chosen.
 >
-> Clanker is a language *for* LLMs, designed *by* an LLM: Claude makes the design decisions and records them here, and Gregory reviews them. The design is tested against the example programs in [`examples/`](examples/), and [`examples/NOTES.md`](examples/NOTES.md) records what they revealed.
+> Clanker is a language *for* LLMs, designed *by* an LLM: Claude makes the design decisions and records them here, and Gregory reviews them. The design is tested against the example programs in [`examples/`](examples/).
 
 ## Thesis
 
